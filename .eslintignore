@@ -1,0 +1,5 @@
+node_modules
+dist
+src/uni_modules/*
+src/unpackage/*
+src/uniCloud-aliyun/*
