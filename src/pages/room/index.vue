@@ -1,20 +1,6 @@
 <template>
   <view class="bg">
-    <view class="bed">
-      <view class="bed-header" :style="bedHeaderStyle" />
-      <view class="bed-center" />
-      <view class="bed-leg" :style="bedLegStyle" />
-      <view class="bed-footer" :style="bedFooterStyle" />
-      <image class="bed-img" src="../../static/home/bed.png" alt="" />
-    </view>
-    <view class="uni-title">床头升降</view>
-    <view class="slider">
-      <slider value="0" @change="sliderChangeHeader" activeColor="#0C9BCC" backgroundColor="#324A61" min="0" max="60" block-color="#0C9BCC" block-size="20" />
-    </view>
-    <view class="uni-title">床尾升降</view>
-    <view class="slider">
-      <slider value="0" @change="sliderChangeLeg" activeColor="#0C9BCC" backgroundColor="#324A61" min="0" max="30" block-color="#0C9BCC" block-size="20" />
-    </view>
+
   </view>
 </template>
 
