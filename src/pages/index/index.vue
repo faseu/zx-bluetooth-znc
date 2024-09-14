@@ -1,6 +1,6 @@
 <template>
   <view class="content">
-    <view class="bluetooth">
+    <view class="bluetooth" @click="goBluetoothList()">
       <image class="bluetooth-icon" src="../../static/home/bluetooth-orange.png" alt="" />
       <text> 蓝牙未连接 </text>
       <image class="bluetooth-arrow" src="../../static/home/right-arrow.png" alt="" />
@@ -73,6 +73,9 @@
     },
     onLoad() {},
     methods: {
+      goBluetoothList() {
+        uni.navigateTo({ url: '/pages/bluetooth/index' });
+      },
       sliderChangeHeader(e) {
         const { value } = e.detail;
         this.bedHeaderStyle.transform = `rotate(${value}deg)`;

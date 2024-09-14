@@ -23,14 +23,7 @@
       }
     },
     {
-      "path": "pages/bluetooth/bluetooth",
-      "style": {
-        "navigationBarTitleText": "蓝牙",
-        "enablePullDownRefresh": true
-      }
-    },
-    {
-      "path": "pages/bluetooth/bluetooth2",
+      "path": "pages/bluetooth/index",
       "style": {
         "navigationBarTitleText": "蓝牙",
         "enablePullDownRefresh": true

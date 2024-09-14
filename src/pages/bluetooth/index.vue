@@ -1,42 +1,24 @@
 <template>
   <view class="village_mode">
-    <template>
-      <view class="header_icon">
-        <image src="../../static/room/bluetooth1.png" alt="" v-if="!isbluetoothConnected" @click="modalShow" />
-        <image src="../../static/room/bluetooth2.png" alt="" v-else @click="modalShow()" />
+    <view class="mb16 flex-between listWrap" v-for="device in bluetoothDevices" :key="device.deviceId" @click="deviceSelected(device)">
+      <view class="text-left" :style="connectedDeviceId === device.deviceId ? 'color: #FDA010' : ''">
+        <view class="cFThick s32"> {{ device.name }}{{ connectedDeviceId === device.deviceId ? '（已连接）' : '' }} </view>
+        <view class="s28 cFNormal mb16">信号强度：{{ device.RSSI }}</view>
       </view>
-    </template>
-
-    <Modal class="modal" title="蓝牙列表" :visible="visible" @confirm="confirmClicked" @cancel="cancelClicked">
-      <view class="mb16 flex-between listWrap" v-for="device in bluetoothDevices" :key="device.deviceId" @click="deviceSelected(device)">
-        <view class="text-left" :style="connectedDeviceId === device.deviceId ? 'color: #FDA010' : ''">
-          <view class="cFThick s32"> {{ device.name }}{{ connectedDeviceId === device.deviceId ? '（已连接）' : '' }} </view>
-          <view class="s28 cFNormal mb16">信号强度：{{ device.RSSI }}</view>
-        </view>
-        <view v-if="currentDeviceId === device.deviceId" class="flexCenterWrap">
-          <image src="../../static/room/tick2.png" alt="" />
-        </view>
+      <view v-if="currentDeviceId === device.deviceId" class="flexCenterWrap">
+        <image src="../../static/room/tick2.png" alt="" />
       </view>
-    </Modal>
+    </view>
   </view>
 </template>
 
 <script>
-  import Modal from '@/components/Modal/index.vue';
-  // import Icon from "@/components/Icon/bluetooth2.vue";
-
-  import { initBluetooth, connectBluetooth, autoConnectBluetooth } from './bluetooth.js';
+  import { initBluetooth, connectBluetooth, autoConnectBluetooth } from '@/components/Bluetooth/bluetooth.js';
 
   import { closeBluetoothAdapter, closeBLEConnection, awaitWrapper, startBluetoothDevicesDiscovery, writeBLECharacteristicValue } from '@/utils/bluetooth.js';
 
-  // import decode from './js/GbkTextEncoder.js'
-  // import { decodeMsg, weightFormat, rfidFormat } from '@/village_mode/static/js/decode.js'
-
   export default {
-    name: 'Bluetooth',
-    components: {
-      Modal
-    },
+    name: 'bluetoothList',
     props: {
       autoConnectDeviceName: {
         type: String,
@@ -45,8 +27,7 @@
     },
     data() {
       return {
-        visible: false,
-        bluetoothDevices: [],
+        bluetoothDevices: [1, 2, 3],
         isbluetoothConnected: false,
         currentDeviceId: '',
         connectedDeviceId: '',
@@ -63,30 +44,17 @@
       }
       if (this.autoConnectDeviceName) {
         this.autoConnectBluetooth();
-        // ios 第一次进入 监听蓝牙事件调用极慢，重新初始化后即可
-        // if (uni.getSystemInfoSync().platform == 'ios' && !this.iosDone) {
-        // 	setTimeout(() => {
-        // 		this.autoConnectBluetooth()
-        // 	}, 2000)
-        // }
       }
+      this.initBluetooth();
     },
     beforeUnmount() {
       closeBluetoothAdapter();
     },
     methods: {
       async modalShow() {
-        uni.navigateTo({ url: '/pages/bluetooth/index' });
-
-        this.visible = true;
-        // this.currentDeviceId = ''
-        // this.connectedDeviceId = ''
-        // this.isbluetoothConnected = false
-
         if (this.connectedDeviceId) {
           this.currentDeviceId = this.connectedDeviceId;
         }
-        // if (this.bluetoothDevices.length === 0) {
         if (!this.isInit) {
           // 是否重新初始化蓝牙，注释掉就是每次都重新初始化
           this.isInit = true;
@@ -104,13 +72,6 @@
           } else {
             this.initBluetooth();
           }
-          // ios 第一次进入 监听蓝牙事件调用极慢，重新初始化后即可
-          // if (uni.getSystemInfoSync().platform == 'ios' && !this.iosDone) {
-          // 	setTimeout(() => {
-          // 		this.iosDone = true
-          // 		this.initBluetooth()
-          // 	}, 2000)
-          // }
         } else {
           const [err1, res1] = await awaitWrapper(startBluetoothDevicesDiscovery());
           console.log('pageRes', res1);
@@ -118,22 +79,6 @@
       },
       deviceSelected(device) {
         this.currentDeviceId = device.deviceId;
-      },
-      confirmClicked() {
-        console.log('this.currentDeviceId', this.currentDeviceId);
-        if (!this.currentDeviceId) {
-          uin.$showMsg('请选择要连接的设备');
-          return;
-        }
-
-        if (!this.connectedDeviceId) {
-          this.connectBluetooth();
-        } else if (this.connectedDeviceId !== this.currentDeviceId) {
-          closeBLEConnection(this.connectedDeviceId).then(() => {
-            this.connectBluetooth();
-          });
-        }
-        this.visible = false;
       },
       autoConnectBluetooth() {
         let timer = new Date().getTime();
@@ -217,10 +162,6 @@
             console.log('{ deviceId, connected }', deviceId, connected);
           }
         });
-      },
-      cancelClicked() {
-        this.visible = false;
-        this.currentDeviceId = '';
       },
       writeBLECharacteristicValue(value) {
         const { deviceId, serviceId, characteristicId } = this.writeDevice;
