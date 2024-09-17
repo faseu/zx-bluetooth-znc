@@ -1,12 +1,24 @@
 <template>
-  <view class="village_mode">
-    <view class="mb16 flex-between listWrap" v-for="device in bluetoothDevices" :key="device.deviceId" @click="deviceSelected(device)">
-      <view class="text-left" :style="connectedDeviceId === device.deviceId ? 'color: #FDA010' : ''">
-        <view class="cFThick s32"> {{ device.name }}{{ connectedDeviceId === device.deviceId ? '（已连接）' : '' }} </view>
-        <view class="s28 cFNormal mb16">信号强度：{{ device.RSSI }}</view>
+  <view class="content">
+    <view class="state">
+      <view class="bluetooth-left">蓝牙</view>
+      <view class="bluetooth-right">
+        <text class="bluetooth-text">开</text>
+        <image class="bluetooth-arrow" src="../../static/home/right-arrow.png" alt="" />
       </view>
-      <view v-if="currentDeviceId === device.deviceId" class="flexCenterWrap">
-        <image src="../../static/room/tick2.png" alt="" />
+    </view>
+    <template v-if="connectedDeviceId">
+      <view class="title">我的设备</view>
+      <view class="my">
+        <view class="my-left">{{ connectedDeviceId }}</view>
+        <view class="my-right">已连接</view>
+      </view>
+    </template>
+    <view class="title">可用设备...</view>
+    <view class="usable">
+      <view class="usable-item" v-for="device in bluetoothDevices" :key="device.deviceId" @click="deviceSelected(device)" v-show="device.deviceId !== currentDeviceId">
+        <view class="usable-left">{{ device.name }}</view>
+        <view class="usable-right">未连接</view>
       </view>
     </view>
   </view>
@@ -20,32 +32,41 @@
   export default {
     name: 'bluetoothList',
     props: {
-      autoConnectDeviceName: {
-        type: String,
-        default: ''
-      }
+      // autoConnectDeviceName: {
+      //   type: String,
+      //   default: 'MS'
+      // }
     },
     data() {
       return {
-        bluetoothDevices: [1, 2, 3],
+        bluetoothDevices: [],
         isbluetoothConnected: false,
         currentDeviceId: '',
         connectedDeviceId: '',
+        connectedDeviceName: '',
         isInit: false,
         iosDone: false,
-        property: 'notify',
+        property: 'write',
         writeDevice: {},
         timer: 0
       };
     },
     mounted() {
-      if (this.autoConnectDeviceName === 'HLK-V50') {
-        this.property = 'write';
+      // if (this.autoConnectDeviceName === 'HLK-V50') {
+      //   this.property = 'write';
+      // }
+      // if (this.autoConnectDeviceName) {
+      //   this.autoConnectBluetooth();
+      // }
+
+      // this.initBluetooth();
+      if (uni.getSystemInfoSync().platform == 'ios' && !this.iosDone) {
+        setTimeout(() => {
+          this.initBluetooth();
+        }, 2000);
+      } else {
+        this.initBluetooth();
       }
-      if (this.autoConnectDeviceName) {
-        this.autoConnectBluetooth();
-      }
-      this.initBluetooth();
     },
     beforeUnmount() {
       closeBluetoothAdapter();
@@ -79,6 +100,15 @@
       },
       deviceSelected(device) {
         this.currentDeviceId = device.deviceId;
+        this.connectBluetooth();
+
+        // if (!this.connectedDeviceId) {
+        //   this.connectBluetooth();
+        // } else if (this.connectedDeviceId !== this.currentDeviceId) {
+        //   closeBLEConnection(this.connectedDeviceId).then(() => {
+        //     this.connectBluetooth();
+        //   });
+        // }
       },
       autoConnectBluetooth() {
         let timer = new Date().getTime();
@@ -123,6 +153,7 @@
         connectBluetooth({
           devicesName: this.autoConnectDeviceName,
           deviceId: this.currentDeviceId,
+          advertisServiceUUID: '0000FFF0-0000-1000-8000-00805F9B34FB',
           valueChangeCb: (res) => {
             console.log('res.value', res.value);
             this.$emit('blueChange', res.value);
@@ -144,9 +175,7 @@
         initBluetooth({
           devicesNameArr: [this.autoConnectDeviceName],
           deviceFoundCb: (device, bluetoothDevices) => {
-            console.log('bluetoothDevices', bluetoothDevices);
             this.bluetoothDevices = bluetoothDevices;
-            console.log('connectBluetooth', connectBluetooth);
           },
           connectionStateChangeCb: ({ deviceId, connected }) => {
             if (connected) {
@@ -179,6 +208,76 @@
 </script>
 
 <style scoped lang="scss">
+  .content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100vw;
+    min-height: 100vh;
+    padding: 18rpx;
+    box-sizing: border-box;
+    background: linear-gradient(90deg, #0e1e34, #0d1522);
+    color: #fff;
+    font-size: 30rpx;
+
+    .state {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 100rpx;
+      background: #162844;
+      border-radius: 20rpx;
+      box-sizing: border-box;
+      padding: 28rpx;
+      .bluetooth-left {
+      }
+      .bluetooth-right {
+        display: flex;
+        align-items: center;
+        .bluetooth-arrow {
+          width: 12rpx;
+          height: 24rpx;
+          margin-left: 24rpx;
+        }
+      }
+    }
+
+    .title {
+      width: 100%;
+      margin-top: 45rpx;
+      font-size: 24rpx;
+    }
+    .my {
+      margin-top: 24rpx;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 100rpx;
+      background: #162844;
+      border-radius: 20rpx;
+      box-sizing: border-box;
+      padding: 28rpx;
+    }
+    .usable {
+      margin-top: 24rpx;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      background: #162844;
+      border-radius: 20rpx;
+      .usable-item {
+        width: 100%;
+        height: 106rpx;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 28rpx;
+        box-sizing: border-box;
+      }
+    }
+  }
   .flex-between {
     display: flex;
     align-items: center;
