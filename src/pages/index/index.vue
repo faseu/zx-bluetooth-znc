@@ -50,10 +50,40 @@
         <view class="mode-btn-item">零重力模式</view>
       </view>
     </view>
+    <view class="header-shake base-bg">
+      <view class="title">
+        <image class="shake-icon" src="../../static/home/header-shake.png" alt="" />
+        <text class="shake-title">头震动</text>
+        <mySwitch :isOpen="headerShakeOpen" @toggle="handleHeaderShakeOpen()" />
+      </view>
+      <view class="shake-level">
+        <view class="shake-level-item">一级</view>
+        <view class="shake-level-item">二级</view>
+        <view class="shake-level-item">三级</view>
+      </view>
+    </view>
+    <view class="footer-shake base-bg">
+      <view class="title">
+        <image class="shake-icon" src="../../static/home/footer-shake.png" alt="" />
+        <text class="shake-title">脚震动</text>
+        <mySwitch :isOpen="footerShakeOpen" @toggle="handleFooterShakeOpen()" />
+      </view>
+    </view>
+    <view class="light-timing">
+      <view class="light base-bg">
+        <text class="light-title">灯光</text>
+        <mySwitch :isOpen="lightShakeOpen" @toggle="handleLightShakeOpen()" />
+      </view>
+      <view class="timing base-bg">
+        <text class="timing-title">震动15分钟</text>
+        <image class="bluetooth-arrow" src="../../static/home/right-arrow.png" alt="" />
+      </view>
+    </view>
   </view>
 </template>
 
 <script>
+  import mySwitch from '../../components/Switch/index';
   export default {
     name: 'indexPage',
     data() {
@@ -68,11 +98,26 @@
           transform: 'translateX(0rpx) translateY(0rpx)'
         },
         bedHeader: 0,
-        bedLeg: 0
+        bedLeg: 0,
+        headerShakeOpen: false,
+        footerShakeOpen: false,
+        lightShakeOpen: false
       };
+    },
+    components: {
+      mySwitch
     },
     onLoad() {},
     methods: {
+      handleHeaderShakeOpen() {
+        this.headerShakeOpen = !this.headerShakeOpen;
+      },
+      handleFooterShakeOpen() {
+        this.footerShakeOpen = !this.footerShakeOpen;
+      },
+      handleLightShakeOpen() {
+        this.lightShakeOpen = !this.lightShakeOpen;
+      },
       goBluetoothList() {
         uni.navigateTo({ url: '/pages/bluetooth/index' });
       },
@@ -337,6 +382,92 @@
           display: flex;
           align-items: center;
           justify-content: center;
+        }
+      }
+    }
+    .header-shake {
+      margin-top: 28rpx;
+      width: 100%;
+      height: 218rpx;
+      padding: 32rpx 38rpx 0 38rpx;
+      box-sizing: border-box;
+      .title {
+        display: flex;
+        align-items: center;
+        .shake-icon {
+          width: 56rpx;
+          height: 56rpx;
+          margin-right: 28rpx;
+        }
+        .shake-title {
+          flex: 1;
+          width: 100%;
+        }
+      }
+      .shake-level {
+        margin-top: 36rpx;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        .shake-level-item {
+          width: 164rpx;
+          height: 64rpx;
+          background: #0e1d32;
+          border-radius: 32rpx;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+      }
+    }
+    .footer-shake {
+      margin-top: 28rpx;
+      width: 100%;
+      height: 120rpx;
+      padding: 32rpx 38rpx 0 38rpx;
+      box-sizing: border-box;
+      .title {
+        display: flex;
+        align-items: center;
+        .shake-icon {
+          width: 56rpx;
+          height: 56rpx;
+          margin-right: 28rpx;
+        }
+        .shake-title {
+          flex: 1;
+          width: 100%;
+        }
+      }
+    }
+    .light-timing {
+      margin-top: 28rpx;
+      width: 100%;
+      height: 120rpx;
+      box-sizing: border-box;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      .light {
+        width: 318rpx;
+        height: 120rpx;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        .light-title {
+          margin-right: 56rpx;
+        }
+      }
+      .timing {
+        width: 318rpx;
+        height: 120rpx;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        image {
+          width: 12rpx;
+          height: 24rpx;
+          margin-left: 36rpx;
         }
       }
     }

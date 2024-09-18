@@ -4,29 +4,30 @@
     {
       "path": "pages/index/index",
       "style": {
-        "navigationBarTitleText": "智能床"
-      }
-    },
-    {
-      "path": "pages/room/index",
-      "style": {
-        "navigationBarTitleText": "",
-        "navigationStyle": "custom",
-        "enablePullDownRefresh": false,
+        "navigationBarTitleText": "智能床",
         "bounce": false
       }
     },
     {
       "path": "pages/mine/index",
       "style": {
-        "navigationBarTitleText": "我的"
+        "navigationBarTitleText": "个人中心",
+        "bounce": false
       }
     },
     {
       "path": "pages/bluetooth/index",
       "style": {
         "navigationBarTitleText": "蓝牙",
-        "enablePullDownRefresh": true
+        "enablePullDownRefresh": true,
+        "bounce": false
+      }
+    },
+    {
+      "path": "pages/upgrade/index",
+      "style": {
+        "navigationBarTitleText": "OTA升级",
+        "bounce": false
       }
     }
   ],

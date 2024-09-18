@@ -128,3 +128,15 @@ yarn build
     "errMsg": "getBLEDeviceCharacteristics:ok"
 }
 ```
+
+```json
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationBarTitleText": "",
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": false,
+        "bounce": false
+      }
+    },
+```
