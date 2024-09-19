@@ -69,6 +69,7 @@ export async function connectBluetooth({
   getDevicesArr,
   advertisServiceUUID = '0000FFF0-0000-1000-8000-00805F9B34FB'
 }) {
+  let devices = {};
   if (needStop) {
     const [err2, res2] = await awaitWrapper(stopBluetoothDevicesDiscovery());
     console.log('[err2, res2]', [err2, res2]);
@@ -91,7 +92,6 @@ export async function connectBluetooth({
     console.log(prList);
     const [err5, res5] = await awaitWrapper(Promise.all(prList)); // error
     console.log('[err5, res5]', res5);
-    let devices = {};
 
     res5.forEach((item) => {
       console.log(item);
@@ -121,9 +121,32 @@ export async function connectBluetooth({
     });
     console.log(devices);
     uni.setStorageSync(devicesName, JSON.stringify(devices));
-
     // console.log('getStorage(devicesName)', uni.getStorageSync(devicesName));
   }
+  if (devices.notify) {
+    const pr = notifyBLECharacteristicValueChange(devices.notify).catch((err) => err); // for Promise.any
+    console.log('notifyBLECharacteristicValueChange', pr);
+    onBLECharacteristicValueChange((res) => {
+      valueChangeCb(res);
+    });
+    // 仅 notify 时监听特征值变化
+    // const prList2 = [];
+    // console.log('devicesArr', devicesArr);
+    // devicesArr.forEach((item) => {
+    //   if (!item.errCode) {
+    //     prList2.push(pr);
+    //   }
+    // });
+    // // 监听特征值数组中 第一个监听成功的蓝牙 特征值。遍历数组，谁先连接 就监听谁。
+    // const [err6, res6] = await awaitWrapper(Promise.any(prList2));
+    // console.log('[err6, res6]', [err6, res6]);
+    // onBLECharacteristicValueChange((res) => {
+    //   valueChangeCb(res);
+    // });
+  }
+  // else {
+  //   getDevicesArr(devicesArr);
+  // }
   // else {
   //   // for ios, ios 必须 getBLEDeviceCharacteristics 后才能 notifyBLECharacteristicValueChange
   //   const [err4, res4] = await awaitWrapper(getBLEDeviceServices(deviceId));

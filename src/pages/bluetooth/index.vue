@@ -156,6 +156,8 @@
           advertisServiceUUID: '0000FFF0-0000-1000-8000-00805F9B34FB',
           valueChangeCb: (res) => {
             console.log('res.value', res.value);
+            const str = String.fromCharCode.apply(null, res.value);
+            console.log(str);
             this.$emit('blueChange', res.value);
           },
           property: this.property,

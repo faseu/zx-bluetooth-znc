@@ -40,8 +40,8 @@
     </view>
     <view class="set-memory base-bg">记忆角度设定</view>
     <view class="memory-row2">
-      <view class="reset base-bg">一键放平</view>
-      <view class="get-memory base-bg">恢复记忆角度</view>
+      <view class="reset base-bg" @click="sendCommand('<CMD00:001:998>')">一键放平</view>
+      <view class="get-memory base-bg" @click="sendCommand('<CMD00:001:998>')">恢复记忆角度</view>
     </view>
     <view class="mode base-bg">
       <view>选择模式</view>
@@ -117,6 +117,9 @@
       },
       handleLightShakeOpen() {
         this.lightShakeOpen = !this.lightShakeOpen;
+      },
+      sendCommand(value) {
+        console.log(value);
       },
       goBluetoothList() {
         uni.navigateTo({ url: '/pages/bluetooth/index' });
