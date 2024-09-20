@@ -40,14 +40,14 @@
     </view>
     <view class="set-memory base-bg">记忆角度设定</view>
     <view class="memory-row2">
-      <view class="reset base-bg" @click="sendCommand('<CMD00:001:998>')">一键放平</view>
-      <view class="get-memory base-bg" @click="sendCommand('<CMD00:001:998>')">恢复记忆角度</view>
+      <view class="reset base-bg" @click="sendCommand('<CMD00:001:998>\r\n')">一键放平</view>
+      <view class="get-memory base-bg" @click="sendCommand('<CMD00:003:996>\r\n')">恢复记忆角度</view>
     </view>
     <view class="mode base-bg">
       <view>选择模式</view>
       <view class="mode-btn">
-        <view class="mode-btn-item">睡眠模式</view>
-        <view class="mode-btn-item">零重力模式</view>
+        <view class="mode-btn-item" @click="sendCommand('<CMD00:004:995>\r\n')">睡眠模式</view>
+        <view class="mode-btn-item" @click="sendCommand('<CMD00:005:994>\r\n')">零重力模式</view>
       </view>
     </view>
     <view class="header-shake base-bg">
@@ -67,6 +67,11 @@
         <image class="shake-icon" src="../../static/home/footer-shake.png" alt="" />
         <text class="shake-title">脚震动</text>
         <mySwitch :isOpen="footerShakeOpen" @toggle="handleFooterShakeOpen()" />
+        <view class="shake-level">
+          <view class="shake-level-item">一级</view>
+          <view class="shake-level-item">二级</view>
+          <view class="shake-level-item">三级</view>
+        </view>
       </view>
     </view>
     <view class="light-timing">
