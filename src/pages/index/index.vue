@@ -50,28 +50,28 @@
         <view class="mode-btn-item" @click="sendCommand('<CMD00:005:994>\r\n')">零重力模式</view>
       </view>
     </view>
-    <view class="header-shake base-bg">
+    <view class="shake base-bg">
       <view class="title">
         <image class="shake-icon" src="../../static/home/header-shake.png" alt="" />
         <text class="shake-title">头震动</text>
         <mySwitch :isOpen="headerShakeOpen" @toggle="handleHeaderShakeOpen()" />
       </view>
-      <view class="shake-level">
+      <view class="shake-level" v-if="headerShakeOpen">
         <view class="shake-level-item">一级</view>
         <view class="shake-level-item">二级</view>
         <view class="shake-level-item">三级</view>
       </view>
     </view>
-    <view class="footer-shake base-bg">
+    <view class="shake base-bg">
       <view class="title">
         <image class="shake-icon" src="../../static/home/footer-shake.png" alt="" />
         <text class="shake-title">脚震动</text>
         <mySwitch :isOpen="footerShakeOpen" @toggle="handleFooterShakeOpen()" />
-        <view class="shake-level">
-          <view class="shake-level-item">一级</view>
-          <view class="shake-level-item">二级</view>
-          <view class="shake-level-item">三级</view>
-        </view>
+      </view>
+      <view class="shake-level" v-if="footerShakeOpen">
+        <view class="shake-level-item">一级</view>
+        <view class="shake-level-item">二级</view>
+        <view class="shake-level-item">三级</view>
       </view>
     </view>
     <view class="light-timing">
@@ -105,7 +105,9 @@
         bedHeader: 0,
         bedLeg: 0,
         headerShakeOpen: false,
+        headerShakeLevel: 1,
         footerShakeOpen: false,
+        footerShakeLevel: 1,
         lightShakeOpen: false
       };
     },
@@ -116,9 +118,15 @@
     methods: {
       handleHeaderShakeOpen() {
         this.headerShakeOpen = !this.headerShakeOpen;
+        if (this.headerShakeOpen) {
+          this.headerShakeLevel = 1;
+        }
       },
       handleFooterShakeOpen() {
         this.footerShakeOpen = !this.footerShakeOpen;
+        if (this.footerShakeLevel) {
+          this.footerShakeLevel = 1;
+        }
       },
       handleLightShakeOpen() {
         this.lightShakeOpen = !this.lightShakeOpen;
@@ -393,11 +401,11 @@
         }
       }
     }
-    .header-shake {
+    .shake {
       margin-top: 28rpx;
       width: 100%;
-      height: 218rpx;
-      padding: 32rpx 38rpx 0 38rpx;
+      min-height: 120rpx;
+      padding: 32rpx 38rpx 32rpx 38rpx;
       box-sizing: border-box;
       .title {
         display: flex;
@@ -425,26 +433,6 @@
           display: flex;
           align-items: center;
           justify-content: center;
-        }
-      }
-    }
-    .footer-shake {
-      margin-top: 28rpx;
-      width: 100%;
-      height: 120rpx;
-      padding: 32rpx 38rpx 0 38rpx;
-      box-sizing: border-box;
-      .title {
-        display: flex;
-        align-items: center;
-        .shake-icon {
-          width: 56rpx;
-          height: 56rpx;
-          margin-right: 28rpx;
-        }
-        .shake-title {
-          flex: 1;
-          width: 100%;
         }
       }
     }

@@ -21,16 +21,15 @@ export async function int8Array2String(int8Array) {
   return decoder.decode(int8Array);
 }
 
-const str = '<CMD07:001:998>\r\n';
-
-// 将字符串的每个字符转换为其对应的字符编码，并转换为十六进制
-const hexArray = [];
-for (let i = 0; i < str.length; i++) {
-  // 将字符的编码转换为16进制，保证每个字符用两位表示
-  hexArray.push(str.charCodeAt(i).toString(16).padStart(2, '0'));
-}
-
-// 将数组拼接成一个完整的十六进制字符串
-const hexString = hexArray.join(' ');
-
-console.log(hexString);
+export const string2HexArray = (str) => {
+  // 将字符串的每个字符转换为其对应的字符编码，并转换为十六进制
+  const hexArray = [];
+  for (let i = 0; i < str.length; i++) {
+    // 将字符的编码转换为16进制，保证每个字符用两位表示
+    hexArray.push(str.charCodeAt(i).toString(16).padStart(2, '0'));
+  }
+  // 将数组拼接成一个完整的十六进制字符串
+  const hexString = hexArray.join(' ');
+  console.log(hexString);
+  return hexString;
+};
