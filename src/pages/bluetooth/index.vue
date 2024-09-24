@@ -28,7 +28,7 @@
   import { initBluetooth, connectBluetooth, autoConnectBluetooth } from '@/components/Bluetooth/bluetooth.js';
 
   import { closeBluetoothAdapter, closeBLEConnection, awaitWrapper, startBluetoothDevicesDiscovery, writeBLECharacteristicValue } from '@/utils/bluetooth.js';
-  import { buf2hex } from '../../utils/common';
+  import { arrayBufferToString } from '../../utils/common';
 
   export default {
     name: 'bluetoothList',
@@ -146,16 +146,14 @@
       connectBluetooth({ deviceId }) {
         connectBluetooth({
           deviceId,
-          connectStatusCb: (res) => {
-            console.log(res);
+          connectStatusCb: () => {
             this.connectedDeviceId = deviceId;
             this.connectedDeviceName = this.bluetoothDevices.find((item) => item.deviceId === this.connectedDeviceId).name;
           },
           valueChangeCb: (res) => {
             console.log('==============res.value', res.value);
-            buf2hex(res.value);
-            console.log(str);
-            this.$emit('blueChange', res.value);
+            arrayBufferToString(res.value);
+            console.log(arrayBufferToString(res.value));
           },
           property: this.property,
           getDevicesArr: (devices) => {

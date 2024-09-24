@@ -1,8 +1,9 @@
 <template>
   <view class="content">
     <view class="bluetooth" @click="goBluetoothList()">
-      <image class="bluetooth-icon" src="../../static/home/bluetooth-orange.png" alt="" />
-      <text> 蓝牙未连接 </text>
+      <image v-if="connectedDeviceId" class="bluetooth-icon" src="../../static/home/bluetooth-blue.png" alt="" />
+      <image v-else class="bluetooth-icon" src="../../static/home/bluetooth-orange.png" alt="" />
+      <text> {{ connectedDeviceId ? '蓝牙已连接' : '蓝牙未连接' }} </text>
       <image class="bluetooth-arrow" src="../../static/home/right-arrow.png" alt="" />
     </view>
     <view class="bed">
@@ -38,7 +39,7 @@
         <slider value="0" @change="sliderChangeLeg" activeColor="#0C9BCC" backgroundColor="#324A61" min="0" max="30" block-color="#0C9BCC" block-size="15" />
       </view>
     </view>
-    <view class="set-memory base-bg">记忆角度设定</view>
+    <view class="set-memory base-bg" @click="sendCommand('<CMD00:001:997>\r\n')">记忆角度设定</view>
     <view class="memory-row2">
       <view class="reset base-bg" @click="sendCommand('<CMD00:001:998>\r\n')">一键放平</view>
       <view class="get-memory base-bg" @click="sendCommand('<CMD00:003:996>\r\n')">恢复记忆角度</view>
@@ -46,8 +47,8 @@
     <view class="mode base-bg">
       <view>选择模式</view>
       <view class="mode-btn">
-        <view class="mode-btn-item" @click="sendCommand('<CMD00:004:995>\r\n')">睡眠模式</view>
-        <view class="mode-btn-item" @click="sendCommand('<CMD00:005:994>\r\n')">零重力模式</view>
+        <view class="mode-btn-item" :style="mode === 1 ? 'background: #0B4F73' : ''" @click="changeMode(1)">睡眠模式</view>
+        <view class="mode-btn-item" :style="mode === 2 ? 'background: #0B4F73' : ''" @click="changeMode(2)">零重力模式</view>
       </view>
     </view>
     <view class="shake base-bg">
@@ -57,9 +58,9 @@
         <mySwitch :isOpen="headerShakeOpen" @toggle="handleHeaderShakeOpen()" />
       </view>
       <view class="shake-level" v-if="headerShakeOpen">
-        <view class="shake-level-item">一级</view>
-        <view class="shake-level-item">二级</view>
-        <view class="shake-level-item">三级</view>
+        <view class="shake-level-item" :style="headerShakeLevel === 1 ? 'background: #0B4F73' : ''" @click="changeHeaderShakeLevel(1)">一级</view>
+        <view class="shake-level-item" :style="headerShakeLevel === 2 ? 'background: #0B4F73' : ''" @click="changeHeaderShakeLevel(2)">二级</view>
+        <view class="shake-level-item" :style="headerShakeLevel === 3 ? 'background: #0B4F73' : ''" @click="changeHeaderShakeLevel(3)">三级</view>
       </view>
     </view>
     <view class="shake base-bg">
@@ -69,9 +70,9 @@
         <mySwitch :isOpen="footerShakeOpen" @toggle="handleFooterShakeOpen()" />
       </view>
       <view class="shake-level" v-if="footerShakeOpen">
-        <view class="shake-level-item">一级</view>
-        <view class="shake-level-item">二级</view>
-        <view class="shake-level-item">三级</view>
+        <view class="shake-level-item" :style="footerShakeLevel === 1 ? 'background: #0B4F73' : ''" @click="changeFooterShakeLevel(1)">一级</view>
+        <view class="shake-level-item" :style="footerShakeLevel === 2 ? 'background: #0B4F73' : ''" @click="changeFooterShakeLevel(2)">二级</view>
+        <view class="shake-level-item" :style="footerShakeLevel === 3 ? 'background: #0B4F73' : ''" @click="changeFooterShakeLevel(3)">三级</view>
       </view>
     </view>
     <view class="light-timing">
@@ -79,7 +80,7 @@
         <text class="light-title">灯光</text>
         <mySwitch :isOpen="lightShakeOpen" @toggle="handleLightShakeOpen()" />
       </view>
-      <view class="timing base-bg">
+      <view class="timing base-bg" @click="sendCommand('<CMD00:900:099>\r\n')">
         <text class="timing-title">震动15分钟</text>
         <image class="bluetooth-arrow" src="../../static/home/right-arrow.png" alt="" />
       </view>
@@ -89,12 +90,14 @@
 
 <script>
   import mySwitch from '../../components/Switch/index';
-  import { string2HexArray } from '../../utils/common';
+  import { arrayBufferToString, string2HexArray } from '../../utils/common';
   import { writeBLECharacteristicValue } from '../../utils/bluetooth';
+  import { connectBluetooth, initBluetooth } from '../../components/Bluetooth/bluetooth';
   export default {
     name: 'indexPage',
     data() {
       return {
+        connectedDeviceId: undefined,
         bedHeaderStyle: {
           transform: 'rotate(0deg)'
         },
@@ -110,33 +113,146 @@
         headerShakeLevel: 1,
         footerShakeOpen: false,
         footerShakeLevel: 1,
-        lightShakeOpen: false
+        lightShakeOpen: false,
+        mode: 0
       };
     },
     components: {
       mySwitch
     },
-    onLoad() {},
+    onShow() {
+      const { deviceId } = JSON.parse(uni.getStorageSync('MS'));
+      if (deviceId) {
+        this.connectedDeviceId = deviceId;
+      }
+    },
+    mounted() {
+      const { deviceId, serviceId } = JSON.parse(uni.getStorageSync('MS'));
+      if (deviceId) {
+        this.initBluetooth();
+        uni.showLoading({
+          title: '加载中...',
+          mask: true
+        });
+        if (uni.getSystemInfoSync().platform == 'ios' && !this.iosDone) {
+          setTimeout(() => {
+            this.initBluetooth();
+            uni.hideLoading();
+            this.connectBluetooth({ deviceId });
+          }, 1000);
+        } else {
+          this.initBluetooth();
+          uni.hideLoading();
+          this.connectBluetooth({ deviceId });
+        }
+      }
+    },
     methods: {
+      // 蓝牙
+      initBluetooth() {
+        initBluetooth({
+          devicesNameArr: [this.autoConnectDeviceName],
+          deviceFoundCb: (device, bluetoothDevices) => {
+            this.bluetoothDevices = bluetoothDevices;
+          },
+          connectionStateChangeCb: ({ deviceId, connected }) => {
+            console.log(deviceId, connected);
+            if (connected) {
+              this.connectedDeviceId = deviceId;
+            } else {
+              this.connectedDeviceId = '';
+            }
+            this.isbluetoothConnected = connected;
+          }
+        });
+      },
+      connectBluetooth({ deviceId }) {
+        connectBluetooth({
+          deviceId,
+          connectStatusCb: (res) => {
+            if (!res) {
+              uni.removeStorageSync('MS');
+              this.connectedDeviceId = undefined;
+            } else {
+              this.connectedDeviceId = deviceId;
+              this.connectedDeviceName = this.bluetoothDevices.find((item) => item.deviceId === this.connectedDeviceId).name;
+            }
+          },
+          valueChangeCb: (res) => {
+            console.log('==============res.value', res.value);
+            arrayBufferToString(res.value);
+            console.log(arrayBufferToString(res.value));
+          },
+          property: this.property,
+          getDevicesArr: (devices) => {
+            const deviceId = devices[0].deviceId,
+              serviceId = devices[0].serviceId,
+              characteristicId = devices[0].characteristicId;
+            this.writeDevice = {
+              deviceId,
+              serviceId,
+              characteristicId
+            };
+          }
+        });
+      },
+
+      changeMode(value) {
+        if (this.mode === value) {
+          this.mode = 0;
+          return;
+        }
+        this.mode = value;
+        if (value === 1) {
+          this.sendCommand('<CMD00:004:995>\r\n');
+        } else {
+          this.sendCommand('<CMD00:005:994>\r\n');
+        }
+      },
+      // 头震动
       handleHeaderShakeOpen() {
-        this.headerShakeOpen = !this.headerShakeOpen;
         if (this.headerShakeOpen) {
+          this.headerShakeOpen = false;
+          this.sendCommand('<CMD00:050:949>\r\n');
+        } else {
+          this.headerShakeOpen = true;
           this.headerShakeLevel = 1;
+          this.changeHeaderShakeLevel(1);
         }
       },
+      changeHeaderShakeLevel(value) {
+        this.headerShakeLevel = value;
+        const tmpValue = (value + 50).toString().padStart(3, '0');
+        this.sendCommand(`<CMD00:${tmpValue}:${999 - tmpValue}>\r\n`);
+      },
+      // 脚震动
       handleFooterShakeOpen() {
-        this.footerShakeOpen = !this.footerShakeOpen;
-        if (this.footerShakeLevel) {
+        if (this.footerShakeOpen) {
+          this.footerShakeOpen = false;
+          this.sendCommand('<CMD00:060:939>\r\n');
+        } else {
+          this.footerShakeOpen = true;
           this.footerShakeLevel = 1;
+          this.changeFooterShakeLevel(1);
         }
       },
+      changeFooterShakeLevel(value) {
+        console.log(this.footerShakeLevel);
+        this.footerShakeLevel = value;
+        const tmpValue = (value + 60).toString().padStart(3, '0');
+        this.sendCommand(`<CMD00:${tmpValue}:${999 - tmpValue}>\r\n`);
+      },
+      // 灯
       handleLightShakeOpen() {
         this.lightShakeOpen = !this.lightShakeOpen;
       },
+      // 发送
       sendCommand(value) {
-        console.log(value);
+        if (!this.connectedDeviceId) {
+          uni.$showMsg('请先连接蓝牙!');
+          return;
+        }
         const hexArray = string2HexArray(value);
-        console.log(hexArray);
         const {
           write: { deviceId, serviceId, characteristicId }
         } = JSON.parse(uni.getStorageSync('MS'));
@@ -154,6 +270,8 @@
         const { value } = e.detail;
         this.bedHeaderStyle.transform = `rotate(${value}deg)`;
         this.bedHeader = value;
+        const perValue = ((value / 60) * 100).toFixed(0).toString().padStart(3, '0');
+        this.sendCommand(`<CMD02:${perValue}:${999 - perValue}>\r\n`);
       },
       sliderChangeLeg(e) {
         const { value } = e.detail;
@@ -161,6 +279,8 @@
         this.bedLegStyle.transform = `rotate(-${value}deg)`;
         const { xOffset, yOffset } = this.calculateOffset(80, 1, value);
         this.bedFooterStyle.transform = `translateX(-${xOffset}rpx) translateY(-${yOffset}rpx)`;
+        const perValue = ((value / 30) * 100).toFixed(0).toString().padStart(3, '0');
+        this.sendCommand(`<CMD04:${perValue}:${999 - perValue}>\r\n`);
       },
       calculateOffset(width, height, angleInDegrees) {
         // 将角度转换为弧度

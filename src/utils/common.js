@@ -21,23 +21,6 @@ export async function int8Array2String(int8Array) {
   return decoder.decode(int8Array);
 }
 
-export async function buf2hex(buffer) {
-  const byteArray = new Uint8Array(buffer);
-  console.log(byteArray);
-  const hexParts = [];
-  for (let i = 0; i < byteArray.length; i++) {
-    // 将值转换为十六进制
-    const hex = byteArray[i].toString(16);
-    // 用零填充至两位数
-    const paddedHex = ('00' + hex).slice(-2);
-    // 添加到数组中
-    hexParts.push(paddedHex);
-  }
-  console.log(hexParts);
-  // 将所有十六进制值连接成一个字符串
-  return hexParts.join('');
-}
-
 // export const string2HexArray = (str) => {
 //   // 将字符串的每个字符转换为其对应的字符编码，并转换为十六进制
 //   const hexArray = [];
@@ -62,7 +45,6 @@ export const string2HexArray = (str) => {
   for (let i = 0; i < str.length; i++) {
     const code = str.charCodeAt(i);
     byteArray.push(code & 0xff); // 低位字节
-    byteArray.push((code >> 8) & 0xff); // 高位字节
   }
 
   // 创建 ArrayBuffer

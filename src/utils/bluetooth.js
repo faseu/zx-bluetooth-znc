@@ -18,9 +18,8 @@ export function awaitWrapper(promise) {
       if (err.errCode) {
         uni.$showMsg(`${err.errCode}`);
       }
-      console.log(err);
-      throw new Error(err.errMsg);
-      // return [err, null]
+      // throw new Error(err.errMsg);
+      return [err, null];
     });
 }
 

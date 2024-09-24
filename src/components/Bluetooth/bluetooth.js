@@ -78,7 +78,10 @@ export async function connectBluetooth({
   }
 
   const [err3, res3] = await awaitWrapper(createBLEConnection(deviceId));
-  console.log('[err3, res3]', res3);
+  if (err3 && err3.errCode) {
+    connectStatusCb(false);
+    return;
+  }
   if (!devicesArr.length) {
     const [err4, res4] = await awaitWrapper(getBLEDeviceServices(deviceId));
     console.log(res4);
