@@ -89,6 +89,8 @@
 
 <script>
   import mySwitch from '../../components/Switch/index';
+  import { string2HexArray } from '../../utils/common';
+  import { writeBLECharacteristicValue } from '../../utils/bluetooth';
   export default {
     name: 'indexPage',
     data() {
@@ -133,6 +135,17 @@
       },
       sendCommand(value) {
         console.log(value);
+        const hexArray = string2HexArray(value);
+        console.log(hexArray);
+        const {
+          write: { deviceId, serviceId, characteristicId }
+        } = JSON.parse(uni.getStorageSync('MS'));
+        writeBLECharacteristicValue({
+          deviceId,
+          serviceId,
+          characteristicId,
+          value: hexArray
+        });
       },
       goBluetoothList() {
         uni.navigateTo({ url: '/pages/bluetooth/index' });

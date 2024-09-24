@@ -67,7 +67,9 @@ export async function connectBluetooth({
   devicesName = 'MS',
   property = 'write',
   getDevicesArr,
+  connectStatusCb,
   advertisServiceUUID = '0000FFF0-0000-1000-8000-00805F9B34FB'
+  // advertisServiceUUID = '0917FE11-5D37-816D-8000-00805F9B34FB'
 }) {
   let devices = {};
   if (needStop) {
@@ -79,10 +81,11 @@ export async function connectBluetooth({
   console.log('[err3, res3]', res3);
   if (!devicesArr.length) {
     const [err4, res4] = await awaitWrapper(getBLEDeviceServices(deviceId));
-    console.log('[err4, res4]', res4);
+    console.log(res4);
     const prList = [];
     const pr = getBLEDeviceCharacteristics({ deviceId, serviceId: advertisServiceUUID }).catch((err) => err); // for Promise.all
     prList.push(pr);
+
     // res4.services.forEach((item) => {
     //   let serviceId = item.uuid;
     //   console.log('item, deviceId', item, deviceId);
@@ -92,10 +95,13 @@ export async function connectBluetooth({
     console.log(prList);
     const [err5, res5] = await awaitWrapper(Promise.all(prList)); // error
     console.log('[err5, res5]', res5);
-
+    devices['deviceId'] = deviceId;
+    devices['serviceId'] = advertisServiceUUID;
     res5.forEach((item) => {
       console.log(item);
       if (!item.errCode) {
+        // 连接成功
+        connectStatusCb(item);
         const serviceId = item.serviceId;
         item.characteristics.forEach((characteristic) => {
           if (characteristic.properties['write']) {
