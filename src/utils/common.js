@@ -78,3 +78,23 @@ export function arrayBufferToHex(arrayBuffer) {
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join(' ');
 }
+
+export function incrementSixthCharacter(str) {
+  if (str.length < 6) {
+    return str; // 如果字符串长度小于6，直接返回原字符串
+  }
+
+  // 提取第六位字符
+  const sixthChar = str[5];
+
+  // 判断第六位字符是否为数字
+  if (!isNaN(sixthChar)) {
+    // 将其转换为数字并加1
+    const incrementedChar = (parseInt(sixthChar, 10) - 1) % 10; // % 10 用于处理加1后大于9的情况
+    // 构造新的字符串
+    return str.substring(0, 5) + incrementedChar + str.substring(6);
+  } else {
+    // 如果第六位不是数字，返回原字符串
+    return str;
+  }
+}

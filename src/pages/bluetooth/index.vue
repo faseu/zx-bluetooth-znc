@@ -144,29 +144,11 @@
         });
       },
       connectBluetooth({ deviceId }) {
-        connectBluetooth({
-          deviceId,
-          connectStatusCb: () => {
-            this.connectedDeviceId = deviceId;
-            this.connectedDeviceName = this.bluetoothDevices.find((item) => item.deviceId === this.connectedDeviceId).name;
-          },
-          valueChangeCb: (res) => {
-            console.log('==============res.value', res.value);
-            arrayBufferToString(res.value);
-            console.log(arrayBufferToString(res.value));
-          },
-          property: this.property,
-          getDevicesArr: (devices) => {
-            const deviceId = devices[0].deviceId,
-              serviceId = devices[0].serviceId,
-              characteristicId = devices[0].characteristicId;
-            this.writeDevice = {
-              deviceId,
-              serviceId,
-              characteristicId
-            };
-          }
-        });
+        const pages = getCurrentPages();
+        const targetPage = pages.find((item) => item.$page.fullPath === '/pages/index/index');
+        targetPage.$vm.connectBluetooth({ deviceId });
+        this.connectedDeviceId = deviceId;
+        this.connectedDeviceName = this.bluetoothDevices.find((item) => item.deviceId === this.connectedDeviceId).name;
       },
       initBluetooth() {
         initBluetooth({

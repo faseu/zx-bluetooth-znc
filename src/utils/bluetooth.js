@@ -243,8 +243,7 @@ export async function onBLECharacteristicValueChange(cb) {
  * 向低功耗蓝牙设备特征值中写入二进制数据。
  * value {ArrayBuffer}
  */
-export async function writeBLECharacteristicValue({ deviceId, serviceId, characteristicId, value }) {
-  uni.$showMsg(`写：${value}`);
+export async function writeBLECharacteristicValue({ deviceId, serviceId, characteristicId, value, callback }) {
   return new Promise((resolve, reject) => {
     uni.writeBLECharacteristicValue({
       deviceId,
@@ -256,6 +255,9 @@ export async function writeBLECharacteristicValue({ deviceId, serviceId, charact
       },
       fail(err) {
         reject(err);
+      },
+      complete(res) {
+        callback(res);
       }
     });
   });

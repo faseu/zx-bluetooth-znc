@@ -1,5 +1,5 @@
 <template>
-  <view class="content">
+  <view :class="{ content: true, popShow: popShow }">
     <view class="bluetooth" @click="goBluetoothList()">
       <image v-if="connectedDeviceId" class="bluetooth-icon" src="../../static/home/bluetooth-blue.png" alt="" />
       <image v-else class="bluetooth-icon" src="../../static/home/bluetooth-orange.png" alt="" />
@@ -28,7 +28,7 @@
         <view>60°</view>
       </view>
       <view class="slider">
-        <slider value="0" @change="sliderChangeHeader" activeColor="#0C9BCC" backgroundColor="#324A61" min="0" max="60" block-color="#0C9BCC" block-size="15" />
+        <slider :value="bedHeader" @change="(e) => sliderChangeHeader(e.detail.value)" activeColor="#0C9BCC" backgroundColor="#324A61" min="0" max="60" block-color="#0C9BCC" block-size="15" />
       </view>
       <view class="title mt42">床尾升降</view>
       <view class="scope">
@@ -36,7 +36,7 @@
         <view>30°</view>
       </view>
       <view class="slider">
-        <slider value="0" @change="sliderChangeLeg" activeColor="#0C9BCC" backgroundColor="#324A61" min="0" max="30" block-color="#0C9BCC" block-size="15" />
+        <slider :value="bedLeg" @change="(e) => sliderChangeLeg(e.detail.value)" activeColor="#0C9BCC" backgroundColor="#324A61" min="0" max="30" block-color="#0C9BCC" block-size="15" />
       </view>
     </view>
     <view class="set-memory base-bg" @click="sendCommand('<CMD00:001:997>\r\n')">记忆角度设定</view>
@@ -51,7 +51,7 @@
         <view class="mode-btn-item" :style="mode === 2 ? 'background: #0B4F73' : ''" @click="changeMode(2)">零重力模式</view>
       </view>
     </view>
-    <view class="shake base-bg">
+    <view class="shake base-bg" v-if="showHeaderShake">
       <view class="title">
         <image class="shake-icon" src="../../static/home/header-shake.png" alt="" />
         <text class="shake-title">头震动</text>
@@ -63,7 +63,7 @@
         <view class="shake-level-item" :style="headerShakeLevel === 3 ? 'background: #0B4F73' : ''" @click="changeHeaderShakeLevel(3)">三级</view>
       </view>
     </view>
-    <view class="shake base-bg">
+    <view class="shake base-bg" v-if="showFooterShake">
       <view class="title">
         <image class="shake-icon" src="../../static/home/footer-shake.png" alt="" />
         <text class="shake-title">脚震动</text>
@@ -75,28 +75,41 @@
         <view class="shake-level-item" :style="footerShakeLevel === 3 ? 'background: #0B4F73' : ''" @click="changeFooterShakeLevel(3)">三级</view>
       </view>
     </view>
-    <view class="light-timing">
+    <view class="light-timing" v-if="showLight">
       <view class="light base-bg">
         <text class="light-title">灯光</text>
         <mySwitch :isOpen="lightShakeOpen" @toggle="handleLightShakeOpen()" />
       </view>
-      <view class="timing base-bg" @click="sendCommand('<CMD00:900:099>\r\n')">
-        <text class="timing-title">震动15分钟</text>
+      <view class="timing base-bg" @click="showTimingPop()">
+        <text class="timing-title">{{ `震动${timing}分钟` }}</text>
         <image class="bluetooth-arrow" src="../../static/home/right-arrow.png" alt="" />
       </view>
     </view>
+    <view class="select_box" v-if="popShow">
+      <view class="select_item" @click="changeTiming(10)">
+        <text>10分钟</text>
+      </view>
+      <view class="select_item" @click="changeTiming(20)">
+        <text>20分钟</text>
+      </view>
+      <view class="select_item select_item_last" @click="changeTiming(30)">
+        <text>30分钟</text>
+      </view>
+    </view>
+    <view class="mask" v-if="popShow" @touchmove.stop.prevent="() => {}" />
   </view>
 </template>
 
 <script>
   import mySwitch from '../../components/Switch/index';
-  import { arrayBufferToString, string2HexArray } from '../../utils/common';
-  import { writeBLECharacteristicValue } from '../../utils/bluetooth';
+  import { arrayBufferToString, incrementSixthCharacter, string2HexArray } from '../../utils/common';
+  import { stopBluetoothDevicesDiscovery, writeBLECharacteristicValue } from '../../utils/bluetooth';
   import { connectBluetooth, initBluetooth } from '../../components/Bluetooth/bluetooth';
   export default {
     name: 'indexPage',
     data() {
       return {
+        popShow: false,
         connectedDeviceId: undefined,
         bedHeaderStyle: {
           transform: 'rotate(0deg)'
@@ -114,7 +127,17 @@
         footerShakeOpen: false,
         footerShakeLevel: 1,
         lightShakeOpen: false,
-        mode: 0
+        mode: 0,
+        timing: 10,
+        isSending: false,
+        isSendNum: 1,
+        sendValueString: '',
+        getValueString: '',
+        timer: null,
+        showHeaderShake: true,
+        showFooterShake: true,
+        showLight: true,
+        isInit: true
       };
     },
     components: {
@@ -127,7 +150,7 @@
       }
     },
     mounted() {
-      const { deviceId, serviceId } = JSON.parse(uni.getStorageSync('MS'));
+      const { deviceId } = JSON.parse(uni.getStorageSync('MS'));
       if (deviceId) {
         this.initBluetooth();
         uni.showLoading({
@@ -148,6 +171,9 @@
       }
     },
     methods: {
+      showTimingPop() {
+        this.popShow = true;
+      },
       // 蓝牙
       initBluetooth() {
         initBluetooth({
@@ -160,7 +186,7 @@
             if (connected) {
               this.connectedDeviceId = deviceId;
             } else {
-              this.connectedDeviceId = '';
+              this.connectedDeviceId = undefined;
             }
             this.isbluetoothConnected = connected;
           }
@@ -175,13 +201,101 @@
               this.connectedDeviceId = undefined;
             } else {
               this.connectedDeviceId = deviceId;
-              this.connectedDeviceName = this.bluetoothDevices.find((item) => item.deviceId === this.connectedDeviceId).name;
             }
+            stopBluetoothDevicesDiscovery();
           },
           valueChangeCb: (res) => {
-            console.log('==============res.value', res.value);
-            arrayBufferToString(res.value);
-            console.log(arrayBufferToString(res.value));
+            let str = arrayBufferToString(res.value);
+            if (this.init) {
+              switch (str.substring(0, 6)) {
+                case '<CMD01':
+                  switch (str.substring(0, 15)) {
+                    case '<CMD01:050:949>': //头震动关
+                      this.headerShakeOpen = false;
+                      this.headerShakeLevel = 1;
+                      break;
+                    case '<CMD01:051:948>': //头震一级
+                      this.headerShakeOpen = true;
+                      this.headerShakeLevel = 1;
+                      break;
+                    case '<CMD01:052:947>': //头震二级
+                      this.headerShakeOpen = true;
+                      this.headerShakeLevel = 2;
+                      break;
+                    case '<CMD01:053:946>': //头震三级
+                      this.headerShakeOpen = true;
+                      this.headerShakeLevel = 3;
+                      break;
+                    case '<CMD01:060:939>': //脚震动关
+                      this.footerShakeOpen = false;
+                      this.footerShakeLevel = 1;
+                      break;
+                    case '<CMD01:061:938>': //脚震一级
+                      this.footerShakeOpen = true;
+                      this.footerShakeLevel = 1;
+                      break;
+                    case '<CMD01:062:937>': //脚震二级
+                      this.footerShakeOpen = true;
+                      this.footerShakeLevel = 2;
+                      break;
+                    case '<CMD01:063:936>': //脚震三级
+                      this.footerShakeOpen = true;
+                      this.footerShakeLevel = 3;
+                      break;
+                    case '<CMD01:070:929>': //倒计时10分钟
+                      this.timing = 10;
+                      break;
+                    case '<CMD01:071:928>': //倒计时20分钟
+                      this.timing = 20;
+                      break;
+                    case '<CMD01:072:927>': //倒计时30分钟
+                      this.timing = 30;
+                      break;
+                  }
+                  break;
+                case '<CMD03': {
+                  let value = str.substring(7, 10);
+                  this.sliderChangeHeader(((value / 100) * 60).toFixed(0));
+                  break;
+                }
+                case '<CMD05': {
+                  let value = str.substring(7, 10);
+                  this.sliderChangeLeg(((value / 100) * 30).toFixed(0));
+                  break;
+                }
+                case '<CMD07':
+                  switch (str.substring(0, 15)) {
+                    case '<CMD07:001:998>': //没有床头震动按摩功能
+                      this.showHeaderShake = false;
+                      break;
+                    case '<CMD07:101:898>': //有床头震动按摩功能
+                      this.showHeaderShake = true;
+                      break;
+                    case '<CMD07:002:997>': //没有床尾震动按摩功能
+                      this.showFooterShake = false;
+                      break;
+                    case '<CMD07:102:897>': //有床尾震动按摩功能
+                      this.showFooterShake = true;
+                      break;
+                    case '<CMD07:003:996>': //没有灯光功能
+                      this.showLight = false;
+                      break;
+                    case '<CMD07:103:896>': //有灯光功能
+                      this.showLight = true;
+                      break;
+                  }
+                  break;
+              }
+              this.init = false;
+            }
+            this.getValueString = incrementSixthCharacter(str).substring(0, 15);
+            if (this.sendValueString === this.getValueString) {
+              clearInterval(this.timer);
+              this.isSendNum = 1;
+              this.isSending = false;
+              uni.$showMsg('操作成功！');
+              console.log('this.sendValueString === this.getValueString');
+            }
           },
           property: this.property,
           getDevicesArr: (devices) => {
@@ -194,10 +308,42 @@
               characteristicId
             };
           }
+        }).then(() => {
+          this.sendCommand('<CMD00:900:099>\r\n');
+          // this.sendCommand('<CMD06:001:998>\r\n');
+          // this.sendCommand('<CMD06:002:997>\r\n');
+          // this.sendCommand('<CMD06:003:996>\r\n');
         });
       },
 
+      changeTiming(value) {
+        if (!this.connectedDeviceId) {
+          uni.$showMsg('请先连接蓝牙!');
+          return;
+        } else if (this.isSending) {
+          return;
+        }
+        this.timing = value;
+        this.popShow = false;
+        switch (value) {
+          case 10:
+            this.sendCommand('<CMD00:070:929>\r\n');
+            break;
+          case 20:
+            this.sendCommand('<CMD00:071:928>\r\n');
+            break;
+          case 30:
+            this.sendCommand('<CMD00:072:927>\r\n');
+            break;
+        }
+      },
       changeMode(value) {
+        if (!this.connectedDeviceId) {
+          uni.$showMsg('请先连接蓝牙!');
+          return;
+        } else if (this.isSending) {
+          return;
+        }
         if (this.mode === value) {
           this.mode = 0;
           return;
@@ -211,6 +357,12 @@
       },
       // 头震动
       handleHeaderShakeOpen() {
+        if (!this.connectedDeviceId) {
+          uni.$showMsg('请先连接蓝牙!');
+          return;
+        } else if (this.isSending) {
+          return;
+        }
         if (this.headerShakeOpen) {
           this.headerShakeOpen = false;
           this.sendCommand('<CMD00:050:949>\r\n');
@@ -221,12 +373,24 @@
         }
       },
       changeHeaderShakeLevel(value) {
+        if (!this.connectedDeviceId) {
+          uni.$showMsg('请先连接蓝牙!');
+          return;
+        } else if (this.isSending) {
+          return;
+        }
         this.headerShakeLevel = value;
         const tmpValue = (value + 50).toString().padStart(3, '0');
         this.sendCommand(`<CMD00:${tmpValue}:${999 - tmpValue}>\r\n`);
       },
       // 脚震动
       handleFooterShakeOpen() {
+        if (!this.connectedDeviceId) {
+          uni.$showMsg('请先连接蓝牙!');
+          return;
+        } else if (this.isSending) {
+          return;
+        }
         if (this.footerShakeOpen) {
           this.footerShakeOpen = false;
           this.sendCommand('<CMD00:060:939>\r\n');
@@ -237,6 +401,12 @@
         }
       },
       changeFooterShakeLevel(value) {
+        if (!this.connectedDeviceId) {
+          uni.$showMsg('请先连接蓝牙!');
+          return;
+        } else if (this.isSending) {
+          return;
+        }
         console.log(this.footerShakeLevel);
         this.footerShakeLevel = value;
         const tmpValue = (value + 60).toString().padStart(3, '0');
@@ -244,37 +414,75 @@
       },
       // 灯
       handleLightShakeOpen() {
-        this.lightShakeOpen = !this.lightShakeOpen;
+        if (!this.connectedDeviceId) {
+          uni.$showMsg('请先连接蓝牙!');
+          return;
+        } else if (this.isSending) {
+          return;
+        }
+        if (this.lightShakeOpen) {
+          this.lightShakeOpen = false;
+          this.sendCommand('<CMD00:080:919>\r\n');
+        } else {
+          this.lightShakeOpen = true;
+          this.sendCommand('<CMD00:081:918>\r\n');
+        }
       },
       // 发送
       sendCommand(value) {
+        if (this.isSending) return;
+        this.isSending = true;
         if (!this.connectedDeviceId) {
           uni.$showMsg('请先连接蓝牙!');
           return;
         }
+        this.sendValueString = value.substring(0, 15);
         const hexArray = string2HexArray(value);
-        const {
-          write: { deviceId, serviceId, characteristicId }
-        } = JSON.parse(uni.getStorageSync('MS'));
+        const { write } = JSON.parse(uni.getStorageSync('MS'));
         writeBLECharacteristicValue({
-          deviceId,
-          serviceId,
-          characteristicId,
-          value: hexArray
+          ...write,
+          value: hexArray,
+          callback: () => {}
         });
+        this.timer = setInterval(() => {
+          if (this.isSendNum >= 3) {
+            clearInterval(this.timer);
+            console.log('this.isSendNum >= 3');
+            uni.$showMsg('请稍后重试！');
+            this.isSendNum = 1;
+            this.isSending = false;
+            return;
+          }
+          writeBLECharacteristicValue({
+            ...write,
+            value: hexArray,
+            callback: () => {}
+          });
+          this.isSendNum = this.isSendNum + 1;
+        }, 1000);
       },
       goBluetoothList() {
         uni.navigateTo({ url: '/pages/bluetooth/index' });
       },
-      sliderChangeHeader(e) {
-        const { value } = e.detail;
+      sliderChangeHeader(value) {
+        if (!this.connectedDeviceId) {
+          uni.$showMsg('请先连接蓝牙!');
+          return;
+        } else if (this.isSending) {
+          return;
+        }
         this.bedHeaderStyle.transform = `rotate(${value}deg)`;
         this.bedHeader = value;
         const perValue = ((value / 60) * 100).toFixed(0).toString().padStart(3, '0');
         this.sendCommand(`<CMD02:${perValue}:${999 - perValue}>\r\n`);
       },
-      sliderChangeLeg(e) {
-        const { value } = e.detail;
+      sliderChangeLeg(value) {
+        if (!this.connectedDeviceId) {
+          uni.$showMsg('请先连接蓝牙!');
+          return;
+        } else if (this.isSending) {
+          return;
+        }
         this.bedLeg = value;
         this.bedLegStyle.transform = `rotate(-${value}deg)`;
         const { xOffset, yOffset } = this.calculateOffset(80, 1, value);
@@ -313,9 +521,10 @@
   }
 
   .content {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    position: relative;
+    //display: flex;
+    //flex-direction: column;
+    //align-items: center;
     width: 100vw;
     min-height: 100vh;
     padding: 12rpx 45rpx 32rpx 45rpx;
@@ -350,7 +559,7 @@
 
     .bed {
       position: relative;
-      margin-top: 142rpx;
+      margin: 142rpx auto 0 auto;
       position: relative;
       width: 450rpx;
       height: 226rpx;
@@ -600,5 +809,61 @@
         }
       }
     }
+    .select_box {
+      opacity: 1;
+      width: 100%;
+      position: absolute;
+      z-index: 99;
+      bottom: 0;
+      left: 0;
+      background: #162844;
+      border-radius: 32rpx 32rpx 0 0;
+      overflow: hidden;
+
+      .select_item {
+        background: #162844;
+        position: relative;
+        height: 112rpx;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28rpx;
+        color: #fff;
+
+        &::after {
+          content: '';
+          position: absolute;
+          bottom: 0;
+          width: 686rpx;
+          height: 2rpx;
+          background: #2c568e;
+        }
+      }
+
+      .select_item_last {
+        &::after {
+          content: none;
+        }
+      }
+    }
+
+    .mask {
+      position: fixed;
+      z-index: 88;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.2);
+    }
   }
+  //.popShow {
+  //  overflow: hidden;
+  //  position: fixed;
+  //  top: 0px;
+  //  left: 0px;
+  //  width: 100vw;
+  //  height: 100vh;
+  //  z-index: 0;
+  //}
 </style>
