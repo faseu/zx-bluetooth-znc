@@ -62,7 +62,7 @@ export async function initBluetooth({ devicesNameArr = ['HLK-V50'], advertisServ
 export async function connectBluetooth({
   deviceId,
   devicesArr = [],
-  valueChangeCb,
+  // valueChangeCb,
   needStop = true,
   devicesName = 'MS',
   property = 'write',
@@ -134,10 +134,10 @@ export async function connectBluetooth({
   }
   if (devices.notify) {
     const pr = notifyBLECharacteristicValueChange(devices.notify).catch((err) => err); // for Promise.any
-    console.log('notifyBLECharacteristicValueChange', pr);
-    onBLECharacteristicValueChange((res) => {
-      valueChangeCb(res);
-    });
+    // console.log('notifyBLECharacteristicValueChange', pr);
+    // onBLECharacteristicValueChange((res) => {
+    //   valueChangeCb(res);
+    // });
     // 仅 notify 时监听特征值变化
     // const prList2 = [];
     // console.log('devicesArr', devicesArr);

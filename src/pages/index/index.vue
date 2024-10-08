@@ -103,7 +103,7 @@
 <script>
   import mySwitch from '../../components/Switch/index';
   import { arrayBufferToString, incrementSixthCharacter, string2HexArray } from '../../utils/common';
-  import { stopBluetoothDevicesDiscovery, writeBLECharacteristicValue } from '../../utils/bluetooth';
+  import { onBLECharacteristicValueChange, stopBluetoothDevicesDiscovery, writeBLECharacteristicValue } from '../../utils/bluetooth';
   import { connectBluetooth, initBluetooth } from '../../components/Bluetooth/bluetooth';
   export default {
     name: 'indexPage',
@@ -147,6 +147,7 @@
       const { deviceId } = JSON.parse(uni.getStorageSync('MS'));
       if (deviceId) {
         this.connectedDeviceId = deviceId;
+        this.onBLECharacteristicValueChange();
       }
     },
     mounted() {
@@ -157,7 +158,7 @@
           title: '加载中...',
           mask: true
         });
-        if (uni.getSystemInfoSync().platform == 'ios' && !this.iosDone) {
+        if (uni.getSystemInfoSync().platform === 'ios') {
           setTimeout(() => {
             this.initBluetooth();
             uni.hideLoading();
@@ -201,101 +202,9 @@
               this.connectedDeviceId = undefined;
             } else {
               this.connectedDeviceId = deviceId;
+              this.onBLECharacteristicValueChange();
             }
             stopBluetoothDevicesDiscovery();
-          },
-          valueChangeCb: (res) => {
-            let str = arrayBufferToString(res.value);
-            if (this.init) {
-              switch (str.substring(0, 6)) {
-                case '<CMD01':
-                  switch (str.substring(0, 15)) {
-                    case '<CMD01:050:949>': //头震动关
-                      this.headerShakeOpen = false;
-                      this.headerShakeLevel = 1;
-                      break;
-                    case '<CMD01:051:948>': //头震一级
-                      this.headerShakeOpen = true;
-                      this.headerShakeLevel = 1;
-                      break;
-                    case '<CMD01:052:947>': //头震二级
-                      this.headerShakeOpen = true;
-                      this.headerShakeLevel = 2;
-                      break;
-                    case '<CMD01:053:946>': //头震三级
-                      this.headerShakeOpen = true;
-                      this.headerShakeLevel = 3;
-                      break;
-                    case '<CMD01:060:939>': //脚震动关
-                      this.footerShakeOpen = false;
-                      this.footerShakeLevel = 1;
-                      break;
-                    case '<CMD01:061:938>': //脚震一级
-                      this.footerShakeOpen = true;
-                      this.footerShakeLevel = 1;
-                      break;
-                    case '<CMD01:062:937>': //脚震二级
-                      this.footerShakeOpen = true;
-                      this.footerShakeLevel = 2;
-                      break;
-                    case '<CMD01:063:936>': //脚震三级
-                      this.footerShakeOpen = true;
-                      this.footerShakeLevel = 3;
-                      break;
-                    case '<CMD01:070:929>': //倒计时10分钟
-                      this.timing = 10;
-                      break;
-                    case '<CMD01:071:928>': //倒计时20分钟
-                      this.timing = 20;
-                      break;
-                    case '<CMD01:072:927>': //倒计时30分钟
-                      this.timing = 30;
-                      break;
-                  }
-                  break;
-                case '<CMD03': {
-                  let value = str.substring(7, 10);
-                  this.sliderChangeHeader(((value / 100) * 60).toFixed(0));
-                  break;
-                }
-                case '<CMD05': {
-                  let value = str.substring(7, 10);
-                  this.sliderChangeLeg(((value / 100) * 30).toFixed(0));
-                  break;
-                }
-                case '<CMD07':
-                  switch (str.substring(0, 15)) {
-                    case '<CMD07:001:998>': //没有床头震动按摩功能
-                      this.showHeaderShake = false;
-                      break;
-                    case '<CMD07:101:898>': //有床头震动按摩功能
-                      this.showHeaderShake = true;
-                      break;
-                    case '<CMD07:002:997>': //没有床尾震动按摩功能
-                      this.showFooterShake = false;
-                      break;
-                    case '<CMD07:102:897>': //有床尾震动按摩功能
-                      this.showFooterShake = true;
-                      break;
-                    case '<CMD07:003:996>': //没有灯光功能
-                      this.showLight = false;
-                      break;
-                    case '<CMD07:103:896>': //有灯光功能
-                      this.showLight = true;
-                      break;
-                  }
-                  break;
-              }
-              this.init = false;
-            }
-            this.getValueString = incrementSixthCharacter(str).substring(0, 15);
-            if (this.sendValueString === this.getValueString) {
-              clearInterval(this.timer);
-              this.isSendNum = 1;
-              this.isSending = false;
-              uni.$showMsg('操作成功！');
-              console.log('this.sendValueString === this.getValueString');
-            }
           },
           property: this.property,
           getDevicesArr: (devices) => {
@@ -313,6 +222,103 @@
           // this.sendCommand('<CMD06:001:998>\r\n');
           // this.sendCommand('<CMD06:002:997>\r\n');
           // this.sendCommand('<CMD06:003:996>\r\n');
+        });
+      },
+      // 监听单片机返回的数据
+      onBLECharacteristicValueChange() {
+        onBLECharacteristicValueChange((res) => {
+          let str = arrayBufferToString(res.value);
+          console.log('收到蓝牙设备数据:', str);
+          if (this.init) {
+            switch (str.substring(0, 6)) {
+              case '<CMD01':
+                switch (str.substring(0, 15)) {
+                  case '<CMD01:050:949>': //头震动关
+                    this.headerShakeOpen = false;
+                    this.headerShakeLevel = 1;
+                    break;
+                  case '<CMD01:051:948>': //头震一级
+                    this.headerShakeOpen = true;
+                    this.headerShakeLevel = 1;
+                    break;
+                  case '<CMD01:052:947>': //头震二级
+                    this.headerShakeOpen = true;
+                    this.headerShakeLevel = 2;
+                    break;
+                  case '<CMD01:053:946>': //头震三级
+                    this.headerShakeOpen = true;
+                    this.headerShakeLevel = 3;
+                    break;
+                  case '<CMD01:060:939>': //脚震动关
+                    this.footerShakeOpen = false;
+                    this.footerShakeLevel = 1;
+                    break;
+                  case '<CMD01:061:938>': //脚震一级
+                    this.footerShakeOpen = true;
+                    this.footerShakeLevel = 1;
+                    break;
+                  case '<CMD01:062:937>': //脚震二级
+                    this.footerShakeOpen = true;
+                    this.footerShakeLevel = 2;
+                    break;
+                  case '<CMD01:063:936>': //脚震三级
+                    this.footerShakeOpen = true;
+                    this.footerShakeLevel = 3;
+                    break;
+                  case '<CMD01:070:929>': //倒计时10分钟
+                    this.timing = 10;
+                    break;
+                  case '<CMD01:071:928>': //倒计时20分钟
+                    this.timing = 20;
+                    break;
+                  case '<CMD01:072:927>': //倒计时30分钟
+                    this.timing = 30;
+                    break;
+                }
+                break;
+              case '<CMD03': {
+                let value = str.substring(7, 10);
+                this.sliderChangeHeader(((value / 100) * 60).toFixed(0));
+                break;
+              }
+              case '<CMD05': {
+                let value = str.substring(7, 10);
+                this.sliderChangeLeg(((value / 100) * 30).toFixed(0));
+                break;
+              }
+              case '<CMD07':
+                switch (str.substring(0, 15)) {
+                  case '<CMD07:001:998>': //没有床头震动按摩功能
+                    this.showHeaderShake = false;
+                    break;
+                  case '<CMD07:101:898>': //有床头震动按摩功能
+                    this.showHeaderShake = true;
+                    break;
+                  case '<CMD07:002:997>': //没有床尾震动按摩功能
+                    this.showFooterShake = false;
+                    break;
+                  case '<CMD07:102:897>': //有床尾震动按摩功能
+                    this.showFooterShake = true;
+                    break;
+                  case '<CMD07:003:996>': //没有灯光功能
+                    this.showLight = false;
+                    break;
+                  case '<CMD07:103:896>': //有灯光功能
+                    this.showLight = true;
+                    break;
+                }
+                break;
+            }
+            this.init = false;
+          }
+          this.getValueString = incrementSixthCharacter(str).substring(0, 15);
+          if (this.sendValueString === this.getValueString) {
+            clearInterval(this.timer);
+            this.isSendNum = 1;
+            this.isSending = false;
+            uni.$showMsg('操作成功！');
+            console.log('this.sendValueString === this.getValueString');
+          }
         });
       },
 
