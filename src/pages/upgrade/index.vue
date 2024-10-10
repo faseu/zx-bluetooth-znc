@@ -16,20 +16,27 @@
       <view class="upgrade-desc">全新改版升级更时尚</view>
       <view class="upgrade-btn">退 出</view>
     </template>
+    <view class="log">
+      {{ this.log }}
+    </view>
   </view>
 </template>
 
 <script>
   import filePath from '../../static/app.bin';
-  import { awaitWrapper, getBluetoothAdapterState, onBLECharacteristicValueChange, writeBLECharacteristicValue } from '../../utils/bluetooth';
-  import { arrayBufferToString, string2HexArray } from '../../utils/common';
+  import { awaitWrapper, getBluetoothAdapterState, writeBLECharacteristicValue } from '../../utils/bluetooth';
+  import { arrayBufferToHex, arrayBufferToHexArr, arrayBufferToString, string2HexArray } from '../../utils/common';
   // 获取全局的文件管理器
   const fileSystemManager = uni.getFileSystemManager();
   export default {
     name: 'minePage',
     data() {
       return {
-        arrayBuffer: undefined
+        arrayBuffer: undefined,
+        state: 0,
+        log: '',
+        sequence: 1, // YMODEM 数据包的序列号从1开始
+        offset: 0
       };
     },
     async onLoad() {
@@ -53,6 +60,10 @@
     },
     methods: {
       sendCommand(value, isHexArray) {
+        console.log(arrayBufferToHex(value));
+        const str = isHexArray ? arrayBufferToString(value) : value;
+        uni.$showMsg('发送:' + str);
+        // this.log = this.log + `发送:${str}\r\n`;
         const { write } = JSON.parse(uni.getStorageSync('MS'));
         writeBLECharacteristicValue({
           ...write,
@@ -66,8 +77,9 @@
           filePath: filePath,
           success: (res) => {
             this.arrayBuffer = res.data; // ArrayBuffer 格式的文件内容
-
             console.log('文件内容:', this.arrayBuffer);
+            // this.sendYmodemData(this.arrayBuffer);
+            // this.startYmodemTransfer();
           },
           fail: (err) => {
             console.error('读取文件失败', err);
@@ -76,13 +88,16 @@
       },
       // 监听单片机返回的数据
       onBLECharacteristicValueChange() {
-        onBLECharacteristicValueChange((res) => {
+        uni.onBLECharacteristicValueChange((res) => {
           let str = arrayBufferToString(res.value);
+          uni.$showMsg('收到:' + str);
+          this.log = this.log + `收到:${str}(${arrayBufferToHex(res.value)})`;
           console.log('收到蓝牙设备数据:', str);
           if (str.substring(0, 15) === '<CMD01:000:999>') {
             console.log('准备进入boot引导模式');
+            this.startYmodemTransfer();
           }
-          if (str === 'C') {
+          if (str === 'C' && this.state === 0) {
             // 开始 YMODEM 文件传输
             this.startYmodemTransfer();
           }
@@ -95,17 +110,34 @@
         const fileBuffer = this.arrayBuffer; // 读取文件内容，生成 ArrayBuffer
 
         // 第一步：发送文件名帧
-        const fileHeader = this.createYmodemHeader(filename, fileSize);
-        console.log('fileHeader---------', fileHeader);
-        this.sendCommand(fileHeader, true);
+        const buffer = this.createYmodemHeader(filename, fileSize);
+        let offset = 0;
+        const size = 128;
+        while (offset < buffer.byteLength) {
+          let tempPacket;
+          if (buffer.byteLength - size > offset) {
+            tempPacket = new Uint8Array(size);
+          } else {
+            tempPacket = new Uint8Array(buffer.byteLength - offset);
+          }
+          const tempChunk = buffer.slice(offset, offset + size);
+          tempPacket.set(new Uint8Array(tempChunk));
+          offset += size;
+          // 发送数据包
+          this.sendCommand(tempPacket.buffer, true);
+        }
 
         // // 监听 MCU 回复 ACK 然后发送文件数据
         uni.onBLECharacteristicValueChange((res) => {
           const str = arrayBufferToString(res.value);
-          if (str === 'ACK') {
+          uni.$showMsg('收到:' + str);
+          this.log = this.log + `收到:${str}(${arrayBufferToHex(res.value)})`;
+          if ((arrayBufferToHex(res.value) === '06 43' || arrayBufferToHex(res.value) === '43 06' || arrayBufferToHex(res.value) === '06') && this.state === 0) {
             console.log('收到ACK, 开始发送文件数据...');
+            this.state = 1;
           }
-          if (str === 'C') {
+          if (str === 'C' && this.state === 1) {
+            this.state = 2;
             // 发送 YMODEM 文件数据
             this.sendYmodemData(fileBuffer);
           }
@@ -113,8 +145,8 @@
       },
       // 创建 YMODEM 文件头
       createYmodemHeader(filename, fileSize) {
-        const header = new Uint8Array(128); // YMODEM 文件头固定128字节
-        header[0] = 0x01; // SOH 标识
+        const header = new Uint8Array(1029); // YMODEM 文件头固定128字节
+        header[0] = 0x02; // SOH 标识
         header[1] = 0x00; // 序号
         header[2] = 0xff; // 序号的反码
 
@@ -130,59 +162,102 @@
         }
 
         // 计算 CRC 校验码
-        const crc = this.calculateCRC(header);
-        header[126] = crc >> 8;
-        header[127] = crc & 0xff;
+        const crc = this.calcCRC16(header.slice(3, 1027));
+        header[1027] = crc & 0xff;
+        header[1028] = crc >> 8;
 
         return header.buffer;
       },
       // 发送 YMODEM 文件数据
       sendYmodemData(fileBuffer) {
         const packetSize = 1024; // STX 数据包为 1024 字节
-        let sequence = 1; // YMODEM 数据包的序列号从1开始
+        const packet = new Uint8Array(packetSize + 5); // STX + 序号 + 数据 + CRC
+        packet[0] = 0x02; // STX 标识
+
+        // 填充序号和反码
+        packet[1] = this.sequence;
+        packet[2] = 0xff - this.sequence;
+
+        // 填充数据
+        const chunk = fileBuffer.slice(this.offset, this.offset + packetSize);
+        packet.set(new Uint8Array(chunk), 3);
+
+        // 填充 CRC 校验码
+        const crc = this.calcCRC16(packet.slice(3, packetSize + 3));
+        console.log(crc);
+        packet[packetSize + 3] = crc & 0xff;
+        packet[packetSize + 4] = crc >> 8;
+        console.log(packet.buffer);
+        const buffer = packet.buffer;
         let offset = 0;
-
-        while (offset < fileBuffer.byteLength) {
-          const packet = new Uint8Array(packetSize + 5); // STX + 序号 + 数据 + CRC
-          packet[0] = 0x02; // STX 标识
-
-          // 填充序号和反码
-          packet[1] = sequence;
-          packet[2] = 0xff - sequence;
-
-          // 填充数据
-          const chunk = fileBuffer.slice(offset, offset + packetSize);
-          packet.set(new Uint8Array(chunk), 3);
-
-          // 填充 CRC 校验码
-          const crc = this.calculateCRC(packet.slice(3, packetSize + 3));
-          packet[packetSize + 3] = crc >> 8;
-          packet[packetSize + 4] = crc & 0xff;
-
+        const size = 128;
+        while (offset < buffer.byteLength) {
+          let tempPacket;
+          if (buffer.byteLength - size > offset) {
+            tempPacket = new Uint8Array(size);
+          } else {
+            tempPacket = new Uint8Array(buffer.byteLength - offset);
+          }
+          const tempChunk = buffer.slice(offset, offset + size);
+          tempPacket.set(new Uint8Array(tempChunk));
+          offset += size;
           // 发送数据包
-          this.sendCommand(packet.buffer, true);
-
-          // 监听 ACK
-          uni.onBLECharacteristicValueChange((res) => {
-            const str = arrayBufferToString(res.value);
-            if (str === 'C') {
-              console.log(`第 ${sequence} 帧确认`);
-              sequence++;
-              offset += packetSize;
-            }
-          });
+          this.sendCommand(tempPacket.buffer, true);
         }
+
+        // 监听 ACK
+        uni.onBLECharacteristicValueChange((res) => {
+          const str = arrayBufferToString(res.value);
+          uni.$showMsg('收到:' + str);
+          this.log = this.log + `收到:${str}(${arrayBufferToHex(res.value)})`;
+          if ((arrayBufferToHex(res.value) === '06 43' || arrayBufferToHex(res.value) === '43 06' || arrayBufferToHex(res.value) === '06') && this.state === 2) {
+            console.log(`第 ${this.sequence} 帧确认`);
+            this.sequence = this.sequence + 1;
+            this.offset += packetSize;
+            if (this.offset < fileBuffer.byteLength) {
+              this.sendYmodemData(fileBuffer);
+            } else {
+              this.sendCommand(new Uint8Array([0x04]).buffer, true);
+              this.state = 3;
+            }
+          }
+        });
 
         // 发送 EOT 结束符
-        this.sendCommand(new Uint8Array([0x04]).buffer, true);
       },
-      // 计算简单 CRC 校验（可替换为标准的 CRC16 计算）
-      calculateCRC(data) {
+      // 标准的 CRC16 计算 (CCITT)
+      updateCRC16(crcIn, byte) {
+        let crc = crcIn;
+        let inVal = byte | 0x100;
+
+        do {
+          crc <<= 1;
+          inVal <<= 1;
+
+          if (inVal & 0x100) {
+            crc++;
+          }
+
+          if (crc & 0x10000) {
+            crc ^= 0x1021;
+          }
+        } while (!(inVal & 0x10000));
+
+        return crc & 0xffff; // Ensure result is 16-bit
+      },
+      calcCRC16(data) {
         let crc = 0;
+
+        // Iterate over each byte in the data
         for (let i = 0; i < data.length; i++) {
-          crc ^= data[i];
+          crc = this.updateCRC16(crc, data[i]);
         }
-        return crc;
+
+        // Append two zero bytes as part of CRC calculation
+        crc = this.updateCRC16(crc, 0);
+        crc = this.updateCRC16(crc, 0);
+        console.log(crc & 0xffff);
+        return crc & 0xffff; // Ensure result is 16-bit
       }
     }
   };
@@ -259,6 +334,10 @@
         height: 24rpx;
         margin-left: 16rpx;
       }
+    }
+
+    .log {
+      width: 100%;
     }
   }
 </style>

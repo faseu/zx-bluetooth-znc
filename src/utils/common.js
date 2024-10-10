@@ -59,7 +59,6 @@ export const string2HexArray = (str) => {
   console.log(arrayBufferToHex(buffer));
   return buffer;
 };
-
 export function arrayBufferToString(arrayBuffer) {
   const uint8Array = new Uint8Array(arrayBuffer);
   let str = '';
