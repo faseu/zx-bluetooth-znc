@@ -23,7 +23,8 @@ import {
  * deviceFoundCb(device, bluetoothDevices) 找到蓝牙设备时的回调函数 device 新找到的蓝牙设备, bluetoothDevices 之前搜索到的蓝牙列表（已根据 devicesNameArr 列表过滤）
  * connectionStateChangeCb(Object) 监听的蓝牙连接状态改变的回调函数 { deviceId, connected }
  */
-export async function initBluetooth({ devicesNameArr = ['HLK-V50'], advertisServiceUUID = '0000FFF0-0000-1000-8000-00805F9B34FB', deviceFoundCb, connectionStateChangeCb }) {
+export async function initBluetooth({ deviceFoundCb, noFound }) {
+  const advertisServiceUUID = '0000FFF0-0000-1000-8000-00805F9B34FB';
   // const [err_close, res_close] = await awaitWrapper(closeBluetoothAdapter())
   // console.log('[err_close, res_close]', [err_close, res_close])
   let bluetoothDevices = []; // 已发现的蓝牙列表
@@ -31,22 +32,15 @@ export async function initBluetooth({ devicesNameArr = ['HLK-V50'], advertisServ
   console.log('[err, res]', [err, res]);
   const [err0, res0] = await awaitWrapper(getBluetoothAdapterState());
   console.log('[err0, res0]', [err0, res0]);
-  onBluetoothDeviceFound(async ({ devices }) => {
-    const [err, res] = await awaitWrapper(getBluetoothDevices());
+  if (noFound) {
+    noFound();
+    return;
+  }
+  onBluetoothDeviceFound(async () => {
+    const [, res] = await awaitWrapper(getBluetoothDevices());
     const { devices: devicesGetArr } = res;
-    // bluetoothDevices = devicesGetArr.filter((item) => !!item.name);
-    // deviceFoundCb(devices[0], bluetoothDevices);
-    // todo
     bluetoothDevices = devicesGetArr.filter((item) => item.advertisServiceUUIDs && item.advertisServiceUUIDs.includes(advertisServiceUUID));
-    deviceFoundCb(devices[0], bluetoothDevices);
-    // if (devicesNameArr.indexOf(devices[0].name) > -1) {
-    //   console.log('devicesGetArr', bluetoothDevices);
-    //   onBLEConnectionStateChange(connectionStateChangeCb);
-    //   deviceFoundCb(devices[0], bluetoothDevices);
-    // }
-    if (devices[0].name) {
-      console.log('onBluetoothDeviceFound, devices2', devices);
-    }
+    deviceFoundCb(bluetoothDevices);
   });
   const [err1, res1] = await awaitWrapper(startBluetoothDevicesDiscovery());
   console.log('[err1, res1]', [err1, res1]);
@@ -59,18 +53,7 @@ export async function initBluetooth({ devicesNameArr = ['HLK-V50'], advertisServ
  * needStop Boolean 进入时是否需要停止搜索附近蓝牙
  * devicesName 用于存放本地 local 的蓝牙名称
  */
-export async function connectBluetooth({
-  deviceId,
-  devicesArr = [],
-  // valueChangeCb,
-  needStop = true,
-  devicesName = 'MS',
-  property = 'write',
-  getDevicesArr,
-  connectStatusCb,
-  advertisServiceUUID = '0000FFF0-0000-1000-8000-00805F9B34FB'
-  // advertisServiceUUID = '0917FE11-5D37-816D-8000-00805F9B34FB'
-}) {
+export async function connectBluetooth({ deviceId, deviceName, devicesArr = [], needStop = true, connectStatusCb, advertisServiceUUID = '0000FFF0-0000-1000-8000-00805F9B34FB' }) {
   let devices = {};
   if (needStop) {
     const [err2, res2] = await awaitWrapper(stopBluetoothDevicesDiscovery());
@@ -79,10 +62,10 @@ export async function connectBluetooth({
 
   const [err3, res3] = await awaitWrapper(createBLEConnection(deviceId));
   if (err3 && err3.errCode) {
-    connectStatusCb(false);
+    connectStatusCb && connectStatusCb(false);
     return;
   }
-  if (!devicesArr.length) {
+  if (!devicesArr || !devicesArr.length) {
     const [err4, res4] = await awaitWrapper(getBLEDeviceServices(deviceId));
     console.log(res4);
     const prList = [];
@@ -99,12 +82,11 @@ export async function connectBluetooth({
     const [err5, res5] = await awaitWrapper(Promise.all(prList)); // error
     console.log('[err5, res5]', res5);
     devices['deviceId'] = deviceId;
+    devices['deviceName'] = deviceName;
     devices['serviceId'] = advertisServiceUUID;
     res5.forEach((item) => {
       console.log(item);
       if (!item.errCode) {
-        // 连接成功
-        connectStatusCb(item);
         const serviceId = item.serviceId;
         item.characteristics.forEach((characteristic) => {
           if (characteristic.properties['write']) {
@@ -129,68 +111,11 @@ export async function connectBluetooth({
       }
     });
     console.log(devices);
-    uni.setStorageSync(devicesName, JSON.stringify(devices));
-    // console.log('getStorage(devicesName)', uni.getStorageSync(devicesName));
+    uni.setStorageSync('MS', devices);
+    if (devices.notify) {
+      notifyBLECharacteristicValueChange(devices.notify).catch((err) => err);
+    }
   }
-  if (devices.notify) {
-    const pr = notifyBLECharacteristicValueChange(devices.notify).catch((err) => err); // for Promise.any
-    // console.log('notifyBLECharacteristicValueChange', pr);
-    // onBLECharacteristicValueChange((res) => {
-    //   valueChangeCb(res);
-    // });
-    // 仅 notify 时监听特征值变化
-    // const prList2 = [];
-    // console.log('devicesArr', devicesArr);
-    // devicesArr.forEach((item) => {
-    //   if (!item.errCode) {
-    //     prList2.push(pr);
-    //   }
-    // });
-    // // 监听特征值数组中 第一个监听成功的蓝牙 特征值。遍历数组，谁先连接 就监听谁。
-    // const [err6, res6] = await awaitWrapper(Promise.any(prList2));
-    // console.log('[err6, res6]', [err6, res6]);
-    // onBLECharacteristicValueChange((res) => {
-    //   valueChangeCb(res);
-    // });
-  }
-  // else {
-  //   getDevicesArr(devicesArr);
-  // }
-  // else {
-  //   // for ios, ios 必须 getBLEDeviceCharacteristics 后才能 notifyBLECharacteristicValueChange
-  //   const [err4, res4] = await awaitWrapper(getBLEDeviceServices(deviceId));
-  //   console.log('[err4, res4]', [err4, res4]);
-  //   const prList = [];
-  //   devicesArr.forEach((item) => {
-  //     const pr = getBLEDeviceCharacteristics({
-  //       deviceId: item.deviceId,
-  //       serviceId: item.serviceId
-  //     }).catch((err) => err); // for Promise.all
-  //     prList.push(pr);
-  //   });
-  //   const [err5, res5] = await awaitWrapper(Promise.all(prList)); // error
-  //   console.log('[err5, res5]', [err5, res5]);
-  // }
-
-  // if (property === 'notify') {
-  //   // 仅 notify 时监听特征值变化
-  //   const prList2 = [];
-  //   console.log('devicesArr', devicesArr);
-  //   devicesArr.forEach((item) => {
-  //     if (!item.errCode) {
-  //       const pr = notifyBLECharacteristicValueChange(item).catch((err) => err); // for Promise.any
-  //       prList2.push(pr);
-  //     }
-  //   });
-  //   // 监听特征值数组中 第一个监听成功的蓝牙 特征值。遍历数组，谁先连接 就监听谁。
-  //   const [err6, res6] = await awaitWrapper(Promise.any(prList2));
-  //   console.log('[err6, res6]', [err6, res6]);
-  //   onBLECharacteristicValueChange((res) => {
-  //     valueChangeCb(res);
-  //   });
-  // } else {
-  //   getDevicesArr(devicesArr);
-  // }
 }
 
 /**

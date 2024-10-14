@@ -39,7 +39,7 @@
         <slider :value="bedLeg" @change="(e) => sliderChangeLeg(e.detail.value)" activeColor="#0C9BCC" backgroundColor="#324A61" min="0" max="30" block-color="#0C9BCC" block-size="15" />
       </view>
     </view>
-    <view class="set-memory base-bg" @click="sendCommand('<CMD00:001:997>\r\n')">记忆角度设定</view>
+    <view class="set-memory base-bg" @click="sendCommand('<CMD00:002:997>\r\n')">记忆角度设定</view>
     <view class="memory-row2">
       <view class="reset base-bg" @click="sendCommand('<CMD00:001:998>\r\n')">一键放平</view>
       <view class="get-memory base-bg" @click="sendCommand('<CMD00:003:996>\r\n')">恢复记忆角度</view>
@@ -103,7 +103,7 @@
 <script>
   import mySwitch from '../../components/Switch/index';
   import { arrayBufferToString, incrementSixthCharacter, string2HexArray } from '../../utils/common';
-  import { onBLECharacteristicValueChange, stopBluetoothDevicesDiscovery, writeBLECharacteristicValue } from '../../utils/bluetooth';
+  import { onBLECharacteristicValueChange, onBLEConnectionStateChange, stopBluetoothDevicesDiscovery, writeBLECharacteristicValue } from '../../utils/bluetooth';
   import { connectBluetooth, initBluetooth } from '../../components/Bluetooth/bluetooth';
   export default {
     name: 'indexPage',
@@ -144,31 +144,34 @@
       mySwitch
     },
     onShow() {
-      const { deviceId } = JSON.parse(uni.getStorageSync('MS'));
+      const { deviceId } = uni.getStorageSync('MS');
       if (deviceId) {
         this.connectedDeviceId = deviceId;
-        this.onBLECharacteristicValueChange();
       }
+      onBLEConnectionStateChange(({ deviceId, connected }) => {
+        console.log('----------', deviceId, connected);
+        if (connected) {
+          this.deviceId = deviceId;
+          const { deviceName } = uni.getStorageSync('MS') || {};
+          this.deviceName = deviceName;
+          this.onBLECharacteristicValueChange();
+        } else {
+          this.deviceId = undefined;
+          uni.removeStorageSync('MS');
+        }
+      });
     },
-    mounted() {
-      const { deviceId } = JSON.parse(uni.getStorageSync('MS'));
+    onLoad() {
+      const { deviceId } = uni.getStorageSync('MS');
       if (deviceId) {
-        this.initBluetooth();
-        uni.showLoading({
+        wx.showLoading({
           title: '加载中...',
           mask: true
         });
-        if (uni.getSystemInfoSync().platform === 'ios') {
-          setTimeout(() => {
-            this.initBluetooth();
-            uni.hideLoading();
-            this.connectBluetooth({ deviceId });
-          }, 1000);
-        } else {
+        setTimeout(() => {
           this.initBluetooth();
-          uni.hideLoading();
-          this.connectBluetooth({ deviceId });
-        }
+          wx.hideLoading();
+        }, 1000);
       }
     },
     methods: {
@@ -178,45 +181,17 @@
       // 蓝牙
       initBluetooth() {
         initBluetooth({
-          devicesNameArr: [this.autoConnectDeviceName],
-          deviceFoundCb: (device, bluetoothDevices) => {
-            this.bluetoothDevices = bluetoothDevices;
-          },
-          connectionStateChangeCb: ({ deviceId, connected }) => {
-            console.log(deviceId, connected);
-            if (connected) {
-              this.connectedDeviceId = deviceId;
-            } else {
-              this.connectedDeviceId = undefined;
-            }
-            this.isbluetoothConnected = connected;
+          deviceFoundCb: () => {},
+          noFound: () => {
+            this.connectBluetooth();
           }
         });
       },
-      connectBluetooth({ deviceId }) {
+      connectBluetooth() {
+        const { deviceId, deviceName } = uni.getStorageSync('MS');
         connectBluetooth({
           deviceId,
-          connectStatusCb: (res) => {
-            if (!res) {
-              uni.removeStorageSync('MS');
-              this.connectedDeviceId = undefined;
-            } else {
-              this.connectedDeviceId = deviceId;
-              this.onBLECharacteristicValueChange();
-            }
-            stopBluetoothDevicesDiscovery();
-          },
-          property: this.property,
-          getDevicesArr: (devices) => {
-            const deviceId = devices[0].deviceId,
-              serviceId = devices[0].serviceId,
-              characteristicId = devices[0].characteristicId;
-            this.writeDevice = {
-              deviceId,
-              serviceId,
-              characteristicId
-            };
-          }
+          deviceName
         }).then(() => {
           this.sendCommand('<CMD00:900:099>\r\n');
           // this.sendCommand('<CMD06:001:998>\r\n');
@@ -444,7 +419,7 @@
         }
         this.sendValueString = value.substring(0, 15);
         const hexArray = string2HexArray(value);
-        const { write } = JSON.parse(uni.getStorageSync('MS'));
+        const { write } = uni.getStorageSync('MS');
         writeBLECharacteristicValue({
           ...write,
           value: hexArray,

@@ -244,6 +244,7 @@ export async function onBLECharacteristicValueChange(cb) {
  * value {ArrayBuffer}
  */
 export async function writeBLECharacteristicValue({ deviceId, serviceId, characteristicId, value, callback }) {
+  console.log(deviceId, serviceId, characteristicId, value);
   return new Promise((resolve, reject) => {
     uni.writeBLECharacteristicValue({
       deviceId,

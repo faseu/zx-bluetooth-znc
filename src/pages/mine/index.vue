@@ -16,7 +16,9 @@
     data() {
       return {};
     },
-    onLoad() {},
+    onLoad() {
+      this.sendCommand('<CMD06:005:994>\r\n');
+    },
     methods: {
       goToUpgrade() {
         uni.navigateTo({ url: '/pages/upgrade/index' });

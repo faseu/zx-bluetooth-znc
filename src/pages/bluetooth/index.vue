@@ -7,10 +7,10 @@
         <image class="bluetooth-arrow" src="../../static/home/right-arrow.png" alt="" />
       </view>
     </view>
-    <template v-if="connectedDeviceId">
+    <template v-if="deviceId">
       <view class="title">我的设备</view>
       <view class="my">
-        <view class="my-left">{{ connectedDeviceName }}</view>
+        <view class="my-left">{{ deviceName }}</view>
         <view class="my-right">已连接</view>
       </view>
     </template>
@@ -18,7 +18,7 @@
     <view class="usable">
       <view class="usable-item" v-for="device in bluetoothDevices" :key="device.deviceId" @click="connectBluetooth(device)">
         <view class="usable-left">{{ device.name }}</view>
-        <view class="usable-right">{{ device.deviceId === connectedDeviceId ? '已连接' : '未连接' }}</view>
+        <view class="usable-right">{{ device.deviceId === deviceId ? '已连接' : '未连接' }}</view>
       </view>
     </view>
   </view>
@@ -29,6 +29,7 @@
 
   import { closeBluetoothAdapter, closeBLEConnection, awaitWrapper, startBluetoothDevicesDiscovery, writeBLECharacteristicValue } from '@/utils/bluetooth.js';
   import { arrayBufferToString } from '../../utils/common';
+  import { onBLEConnectionStateChange, stopBluetoothDevicesDiscovery } from '../../utils/bluetooth';
 
   export default {
     name: 'bluetoothList',
@@ -40,7 +41,9 @@
     },
     data() {
       return {
-        bluetoothDevices: [],
+        deviceId: undefined, //
+        deviceName: undefined, //
+        bluetoothDevices: [], // 列表
         isbluetoothConnected: false,
         connectedDeviceId: '',
         connectedDeviceName: '',
@@ -51,123 +54,44 @@
         timer: 0
       };
     },
+    onShow() {
+      onBLEConnectionStateChange(({ deviceId, connected }) => {
+        console.log(deviceId, connected);
+        if (connected) {
+          this.deviceId = deviceId;
+          const { deviceName } = uni.getStorageSync('MS') || {};
+          this.deviceName = deviceName;
+        } else {
+          this.deviceId = undefined;
+          uni.removeStorageSync('MS');
+        }
+      });
+    },
     mounted() {
-      // if (this.autoConnectDeviceName === 'HLK-V50') {
-      //   this.property = 'write';
-      // }
-      // if (this.autoConnectDeviceName) {
-      //   this.autoConnectBluetooth();
-      // }
-
-      // this.initBluetooth();
-      uni.showLoading({
+      wx.showLoading({
         title: '加载中...',
         mask: true
       });
-      if (uni.getSystemInfoSync().platform == 'ios' && !this.iosDone) {
-        setTimeout(() => {
-          this.initBluetooth();
-          uni.hideLoading();
-        }, 2000);
-      } else {
+      setTimeout(() => {
         this.initBluetooth();
-        uni.hideLoading();
-      }
+        wx.hideLoading();
+      }, 1000);
     },
     beforeUnmount() {
       // closeBluetoothAdapter();
     },
     methods: {
-      async modalShow() {
-        // if (this.connectedDeviceId) {
-        //   this.currentDeviceId = this.connectedDeviceId;
-        // }
-        if (!this.isInit) {
-          // 是否重新初始化蓝牙，注释掉就是每次都重新初始化
-          this.isInit = true;
-          if (this.isbluetoothConnected) {
-            closeBLEConnection(this.connectedDeviceId)
-              .then(() => {
-                closeBluetoothAdapter();
-                console.log('断开了1');
-                this.initBluetooth();
-              })
-              .catch(() => {
-                console.log('断开了2');
-                closeBluetoothAdapter();
-              });
-          } else {
-            this.initBluetooth();
-          }
-        } else {
-          const [err1, res1] = await awaitWrapper(startBluetoothDevicesDiscovery());
-          console.log('pageRes', res1);
-        }
-      },
-      autoConnectBluetooth() {
-        let timer = new Date().getTime();
-        if (this.timer + 10000 > timer) {
-          // return this.$errTips("请勿频繁重连");
-        } else {
-          this.timer = timer;
-        }
-        autoConnectBluetooth({
-          // devicesNameArr: ['OSTRAN'],
-          devicesNameArr: [this.autoConnectDeviceName],
-          connectionStateChangeCb: ({ deviceId, connected }) => {
-            if (connected) {
-              this.connectedDeviceId = deviceId;
-            } else {
-              this.connectedDeviceId = '';
-            }
-            this.$emit('connectionStateChange', connected);
-
-            this.isbluetoothConnected = connected;
-
-            console.log('{ deviceId, connected }', deviceId, connected);
-          },
-          valueChangeCb: (res) => {
-            console.log('res.value', res.value);
-            this.$emit('blueChange', res.value);
-          },
-          property: this.property,
-          getDevicesArr: (devices) => {
-            const deviceId = devices[0].deviceId,
-              serviceId = devices[0].serviceId,
-              characteristicId = devices[0].characteristicId;
-            this.writeDevice = {
-              deviceId,
-              serviceId,
-              characteristicId
-            };
-          }
+      connectBluetooth({ deviceId, name }) {
+        console.log(deviceId, name);
+        connectBluetooth({
+          deviceId,
+          deviceName: name
         });
-      },
-      connectBluetooth({ deviceId }) {
-        const pages = getCurrentPages();
-        const targetPage = pages.find((item) => item.$page.fullPath === '/pages/index/index');
-        targetPage.$vm.connectBluetooth({ deviceId });
-        this.connectedDeviceId = deviceId;
-        this.connectedDeviceName = this.bluetoothDevices.find((item) => item.deviceId === this.connectedDeviceId).name;
       },
       initBluetooth() {
         initBluetooth({
-          devicesNameArr: [this.autoConnectDeviceName],
-          deviceFoundCb: (device, bluetoothDevices) => {
+          deviceFoundCb: (bluetoothDevices) => {
             this.bluetoothDevices = bluetoothDevices;
-          },
-          connectionStateChangeCb: ({ deviceId, connected }) => {
-            if (connected) {
-              this.connectedDeviceId = deviceId;
-              console.log('');
-            } else {
-              this.connectedDeviceId = '';
-            }
-            this.$emit('connectionStateChange', connected);
-
-            this.isbluetoothConnected = connected;
-
-            console.log('{ deviceId, connected }', deviceId, connected);
           }
         });
       },
