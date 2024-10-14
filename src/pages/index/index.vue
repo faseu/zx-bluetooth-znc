@@ -1,9 +1,9 @@
 <template>
   <view :class="{ content: true, popShow: popShow }">
     <view class="bluetooth" @click="goBluetoothList()">
-      <image v-if="connectedDeviceId" class="bluetooth-icon" src="../../static/home/bluetooth-blue.png" alt="" />
+      <image v-if="deviceId" class="bluetooth-icon" src="../../static/home/bluetooth-blue.png" alt="" />
       <image v-else class="bluetooth-icon" src="../../static/home/bluetooth-orange.png" alt="" />
-      <text> {{ connectedDeviceId ? '蓝牙已连接' : '蓝牙未连接' }} </text>
+      <text> {{ deviceId ? '蓝牙已连接' : '蓝牙未连接' }} </text>
       <image class="bluetooth-arrow" src="../../static/home/right-arrow.png" alt="" />
     </view>
     <view class="bed">
@@ -28,7 +28,7 @@
         <view>60°</view>
       </view>
       <view class="slider">
-        <slider :value="bedHeader" @change="(e) => sliderChangeHeader(e.detail.value)" activeColor="#0C9BCC" backgroundColor="#324A61" min="0" max="60" block-color="#0C9BCC" block-size="15" />
+        <slider :value="bedHeader" @change="(e) => sliderChangeHeader(e.detail.value)" activeColor="#0C9BCC" backgroundColor="#324A61" min="0" max="60" block-color="#0C9BCC" block-size="18" />
       </view>
       <view class="title mt42">床尾升降</view>
       <view class="scope">
@@ -36,7 +36,7 @@
         <view>30°</view>
       </view>
       <view class="slider">
-        <slider :value="bedLeg" @change="(e) => sliderChangeLeg(e.detail.value)" activeColor="#0C9BCC" backgroundColor="#324A61" min="0" max="30" block-color="#0C9BCC" block-size="15" />
+        <slider :value="bedLeg" @change="(e) => sliderChangeLeg(e.detail.value)" activeColor="#0C9BCC" backgroundColor="#324A61" min="0" max="30" block-color="#0C9BCC" block-size="18" />
       </view>
     </view>
     <view class="set-memory base-bg" @click="sendCommand('<CMD00:002:997>\r\n')">记忆角度设定</view>
@@ -110,7 +110,7 @@
     data() {
       return {
         popShow: false,
-        connectedDeviceId: undefined,
+        deviceId: undefined,
         bedHeaderStyle: {
           transform: 'rotate(0deg)'
         },
@@ -146,16 +146,15 @@
     onShow() {
       const { deviceId } = uni.getStorageSync('MS');
       if (deviceId) {
-        this.connectedDeviceId = deviceId;
+        this.deviceId = deviceId;
+        this.onBLECharacteristicValueChange();
       }
       onBLEConnectionStateChange(({ deviceId, connected }) => {
-        console.log('----------', deviceId, connected);
         if (connected) {
           this.deviceId = deviceId;
-          const { deviceName } = uni.getStorageSync('MS') || {};
-          this.deviceName = deviceName;
           this.onBLECharacteristicValueChange();
         } else {
+          uni.$showMsg('连接断开，请重新连接！');
           this.deviceId = undefined;
           uni.removeStorageSync('MS');
         }
@@ -204,7 +203,7 @@
         onBLECharacteristicValueChange((res) => {
           let str = arrayBufferToString(res.value);
           console.log('收到蓝牙设备数据:', str);
-          if (this.init) {
+          if (this.isInit) {
             switch (str.substring(0, 6)) {
               case '<CMD01':
                 switch (str.substring(0, 15)) {
@@ -284,7 +283,7 @@
                 }
                 break;
             }
-            this.init = false;
+            this.isInit = false;
           }
           this.getValueString = incrementSixthCharacter(str).substring(0, 15);
           if (this.sendValueString === this.getValueString) {
@@ -296,9 +295,8 @@
           }
         });
       },
-
       changeTiming(value) {
-        if (!this.connectedDeviceId) {
+        if (!this.deviceId) {
           uni.$showMsg('请先连接蓝牙!');
           return;
         } else if (this.isSending) {
@@ -319,7 +317,7 @@
         }
       },
       changeMode(value) {
-        if (!this.connectedDeviceId) {
+        if (!this.deviceId) {
           uni.$showMsg('请先连接蓝牙!');
           return;
         } else if (this.isSending) {
@@ -338,7 +336,7 @@
       },
       // 头震动
       handleHeaderShakeOpen() {
-        if (!this.connectedDeviceId) {
+        if (!this.deviceId) {
           uni.$showMsg('请先连接蓝牙!');
           return;
         } else if (this.isSending) {
@@ -354,7 +352,7 @@
         }
       },
       changeHeaderShakeLevel(value) {
-        if (!this.connectedDeviceId) {
+        if (!this.deviceId) {
           uni.$showMsg('请先连接蓝牙!');
           return;
         } else if (this.isSending) {
@@ -366,7 +364,7 @@
       },
       // 脚震动
       handleFooterShakeOpen() {
-        if (!this.connectedDeviceId) {
+        if (!this.deviceId) {
           uni.$showMsg('请先连接蓝牙!');
           return;
         } else if (this.isSending) {
@@ -382,7 +380,7 @@
         }
       },
       changeFooterShakeLevel(value) {
-        if (!this.connectedDeviceId) {
+        if (!this.deviceId) {
           uni.$showMsg('请先连接蓝牙!');
           return;
         } else if (this.isSending) {
@@ -395,7 +393,7 @@
       },
       // 灯
       handleLightShakeOpen() {
-        if (!this.connectedDeviceId) {
+        if (!this.deviceId) {
           uni.$showMsg('请先连接蓝牙!');
           return;
         } else if (this.isSending) {
@@ -413,7 +411,7 @@
       sendCommand(value) {
         if (this.isSending) return;
         this.isSending = true;
-        if (!this.connectedDeviceId) {
+        if (!this.deviceId) {
           uni.$showMsg('请先连接蓝牙!');
           return;
         }
@@ -446,7 +444,7 @@
         uni.navigateTo({ url: '/pages/bluetooth/index' });
       },
       sliderChangeHeader(value) {
-        if (!this.connectedDeviceId) {
+        if (!this.deviceId) {
           uni.$showMsg('请先连接蓝牙!');
           return;
         } else if (this.isSending) {
@@ -458,7 +456,7 @@
         this.sendCommand(`<CMD02:${perValue}:${999 - perValue}>\r\n`);
       },
       sliderChangeLeg(value) {
-        if (!this.connectedDeviceId) {
+        if (!this.deviceId) {
           uni.$showMsg('请先连接蓝牙!');
           return;
         } else if (this.isSending) {

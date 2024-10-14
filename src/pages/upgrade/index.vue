@@ -1,31 +1,31 @@
 <template>
   <view class="content">
-    <template v-if="true">
+    <template v-if="steps === 1">
       <image class="upgrade-img" src="../../static/mine/upgrade-bg.png" alt="" />
       <view class="upgrade-title">新版本升级</view>
       <view class="upgrade-desc">全新改版升级更时尚</view>
-      <view class="upgrade-btn" @click="sendCommand('<CMD00:000:999>\r\n')">立即升级</view>
+      <view class="upgrade-btn" @click="handleUpgrade()">立即升级</view>
     </template>
-    <template v-if="false">
+    <template v-if="steps === 2">
       <image class="upgrade-circle-img" src="../../static/mine/upgrade-bg-circle.png" alt="" />
       <view class="upgrade-title">升级中...</view>
     </template>
-    <template v-if="false">
+    <template v-if="steps === 3">
       <image class="upgrade-img" src="../../static/mine/upgrade-bg.png" alt="" />
-      <view class="upgrade-title">版本已经最新啦</view>
+      <view class="upgrade-title">升级成功！</view>
       <view class="upgrade-desc">全新改版升级更时尚</view>
-      <view class="upgrade-btn">退 出</view>
+      <view class="upgrade-btn" @click="handleBack()">退 出</view>
     </template>
-    <view class="log">
-      {{ this.log }}
-    </view>
+    <!--    <view class="log">-->
+    <!--      {{ this.log }}-->
+    <!--    </view>-->
   </view>
 </template>
 
 <script>
   import filePath from '../../static/app.bin';
   import { awaitWrapper, getBluetoothAdapterState, writeBLECharacteristicValue } from '../../utils/bluetooth';
-  import { arrayBufferToHex, arrayBufferToHexArr, arrayBufferToString, string2HexArray } from '../../utils/common';
+  import { arrayBufferToHex, arrayBufferToString, string2HexArray } from '../../utils/common';
   // 获取全局的文件管理器
   const fileSystemManager = uni.getFileSystemManager();
   export default {
@@ -33,15 +33,16 @@
     data() {
       return {
         arrayBuffer: undefined,
-        state: 0,
+        state: -1,
         log: '',
         sequence: 1, // YMODEM 数据包的序列号从1开始
-        offset: 0
+        offset: 0,
+        steps: 1
       };
     },
     async onLoad() {
       this.onBLECharacteristicValueChange();
-      this.readFileAsArrayBuffer(filePath);
+      // this.readFileAsArrayBuffer(filePath);
       // 读取文件内容;
       // fileSystemManager.readFile({
       //   filePath: filePath,
@@ -56,30 +57,30 @@
       //   }
       // });
 
-      // await this.initcloud();
-      // const db = wx.cloud.database();
-      // db.collection('OTA')
-      //   .orderBy('file_version', 'desc')
-      //   .limit(1)
-      //   .get({
-      //     success: (res) => {
-      //       console.log(res.data[0]);
-      //       // 下载文件
-      //       uni.downloadFile({
-      //         url: res.data[0].OTA_file, // 网络文件URL
-      //         success: (res) => {
-      //           if (res.statusCode === 200) {
-      //             console.log('文件下载成功', res.tempFilePath);
-      //             // 读取下载的文件
-      //             this.readFileAsArrayBuffer(res.tempFilePath);
-      //           }
-      //         },
-      //         fail: (err) => {
-      //           console.error('文件下载失败', err);
-      //         }
-      //       });
-      //     }
-      //   });
+      await this.initcloud();
+      const db = wx.cloud.database();
+      db.collection('OTA')
+        .orderBy('file_version', 'desc')
+        .limit(1)
+        .get({
+          success: (res) => {
+            console.log(res.data[0]);
+            // 下载文件
+            uni.downloadFile({
+              url: res.data[0].OTA_file, // 网络文件URL
+              success: (res) => {
+                if (res.statusCode === 200) {
+                  console.log('文件下载成功', res.tempFilePath);
+                  // 读取下载的文件
+                  this.readFileAsArrayBuffer(res.tempFilePath);
+                }
+              },
+              fail: (err) => {
+                console.error('文件下载失败', err);
+              }
+            });
+          }
+        });
       const [err0, res0] = await awaitWrapper(getBluetoothAdapterState());
       console.log(err0, res0);
     },
@@ -89,6 +90,19 @@
           env: 'cloud-9g58dj443a4cc4c6'
         });
       },
+
+      handleUpgrade() {
+        this.state = 0;
+        this.steps = 2;
+        this.sendCommand('<CMD00:000:999>\r\n');
+      },
+
+      handleBack() {
+        uni.navigateBack({
+          delta: 1
+        });
+      },
+
       sendCommand(value, isHexArray) {
         console.log(arrayBufferToHex(value));
         const str = isHexArray ? arrayBufferToString(value) : value;
@@ -249,6 +263,7 @@
             } else {
               this.sendCommand(new Uint8Array([0x04]).buffer, true);
               this.state = 3;
+              this.steps = 3;
             }
           }
         });

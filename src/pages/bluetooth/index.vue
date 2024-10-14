@@ -16,7 +16,7 @@
     </template>
     <view class="title">可用设备...</view>
     <view class="usable">
-      <view class="usable-item" v-for="device in bluetoothDevices" :key="device.deviceId" @click="connectBluetooth(device)">
+      <view class="usable-item" v-for="device in showBluetoothDevices" :key="device.deviceId" @click="connectBluetooth(device)">
         <view class="usable-left">{{ device.name }}</view>
         <view class="usable-right">{{ device.deviceId === deviceId ? '已连接' : '未连接' }}</view>
       </view>
@@ -43,6 +43,7 @@
       return {
         deviceId: undefined, //
         deviceName: undefined, //
+        tempName: '', //
         bluetoothDevices: [], // 列表
         isbluetoothConnected: false,
         connectedDeviceId: '',
@@ -54,13 +55,21 @@
         timer: 0
       };
     },
+    computed: {
+      showBluetoothDevices() {
+        return this.bluetoothDevices.filter((item) => item.deviceId !== this.deviceId);
+      }
+    },
     onShow() {
+      const { deviceId, deviceName } = uni.getStorageSync('MS');
+      if (deviceId) {
+        this.deviceId = deviceId;
+        this.deviceName = deviceName;
+      }
       onBLEConnectionStateChange(({ deviceId, connected }) => {
-        console.log(deviceId, connected);
         if (connected) {
           this.deviceId = deviceId;
-          const { deviceName } = uni.getStorageSync('MS') || {};
-          this.deviceName = deviceName;
+          this.deviceName = this.tempName;
         } else {
           this.deviceId = undefined;
           uni.removeStorageSync('MS');
@@ -82,6 +91,7 @@
     },
     methods: {
       connectBluetooth({ deviceId, name }) {
+        this.tempName = name;
         console.log(deviceId, name);
         connectBluetooth({
           deviceId,
