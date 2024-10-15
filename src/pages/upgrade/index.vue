@@ -50,41 +50,43 @@
       //   success: (res) => {
       //     console.log('读取文件成功:', res.data);
       //
-      //     // this.startYmodemTransfer(res.data); // 将数据传递给 Ymodem 升级函数
+      //     this.startYmodemTransfer(res.data); // 将数据传递给 Ymodem 升级函数
       //   },
       //   fail: (err) => {
       //     console.error('读取文件失败:', err);
       //   }
       // });
-
-      await this.initcloud();
-      const db = wx.cloud.database();
-      db.collection('OTA')
-        .orderBy('file_version', 'desc')
-        .limit(1)
-        .get({
-          success: (res) => {
-            console.log(res.data[0]);
-            // 下载文件
-            uni.downloadFile({
-              url: res.data[0].OTA_file, // 网络文件URL
-              success: (res) => {
-                if (res.statusCode === 200) {
-                  console.log('文件下载成功', res.tempFilePath);
-                  // 读取下载的文件
-                  this.readFileAsArrayBuffer(res.tempFilePath);
-                }
-              },
-              fail: (err) => {
-                console.error('文件下载失败', err);
-              }
-            });
-          }
-        });
+      await this.downloadFile();
       const [err0, res0] = await awaitWrapper(getBluetoothAdapterState());
       console.log(err0, res0);
     },
     methods: {
+      async downloadFile() {
+        await this.initcloud();
+        const db = wx.cloud.database();
+        db.collection('OTA')
+          .orderBy('file_version', 'desc')
+          .limit(1)
+          .get({
+            success: (res) => {
+              console.log(res.data[0]);
+              // 下载文件
+              uni.downloadFile({
+                url: res.data[0].OTA_file, // 网络文件URL
+                success: (res) => {
+                  if (res.statusCode === 200) {
+                    console.log('文件下载成功', res.tempFilePath);
+                    // 读取下载的文件
+                    this.readFileAsArrayBuffer(res.tempFilePath);
+                  }
+                },
+                fail: (err) => {
+                  console.error('文件下载失败', err);
+                }
+              });
+            }
+          });
+      },
       async initcloud() {
         wx.cloud.init({
           env: 'cloud-9g58dj443a4cc4c6'

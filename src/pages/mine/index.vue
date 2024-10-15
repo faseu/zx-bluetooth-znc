@@ -66,7 +66,7 @@
         });
       },
       goToUpgrade() {
-        if (!this.upgradable) return;
+        // if (!this.upgradable) return;
         uni.navigateTo({ url: '/pages/upgrade/index' });
       },
       // 发送

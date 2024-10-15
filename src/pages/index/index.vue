@@ -48,7 +48,7 @@
       <view>选择模式</view>
       <view class="mode-btn">
         <view class="mode-btn-item" :style="mode === 1 ? 'background: #0B4F73' : ''" @click="changeMode(1)">睡眠模式</view>
-        <view class="mode-btn-item" :style="mode === 2 ? 'background: #0B4F73' : ''" @click="changeMode(2)">零重力模式</view>
+        <view class="mode-btn-item" :style="mode === 2 ? 'background: #0B4F73' : ''" @click="changeMode(2)">瑜伽模式</view>
       </view>
     </view>
     <view class="shake base-bg" v-if="showHeaderShake">
@@ -174,6 +174,7 @@
       }
     },
     methods: {
+      // 显示定时弹窗
       showTimingPop() {
         this.popShow = true;
       },
@@ -186,6 +187,7 @@
           }
         });
       },
+      // 连接蓝牙
       connectBluetooth() {
         const { deviceId, deviceName } = uni.getStorageSync('MS');
         connectBluetooth({
@@ -295,6 +297,7 @@
           }
         });
       },
+      // 定时
       changeTiming(value) {
         if (!this.deviceId) {
           uni.$showMsg('请先连接蓝牙!');
@@ -316,6 +319,7 @@
             break;
         }
       },
+      // 模式
       changeMode(value) {
         if (!this.deviceId) {
           uni.$showMsg('请先连接蓝牙!');
@@ -440,6 +444,7 @@
           this.isSendNum = this.isSendNum + 1;
         }, 1000);
       },
+      // 去蓝牙列表
       goBluetoothList() {
         uni.navigateTo({ url: '/pages/bluetooth/index' });
       },
