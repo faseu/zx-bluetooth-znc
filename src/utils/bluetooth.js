@@ -15,7 +15,9 @@ export function awaitWrapper(promise) {
   return promise
     .then((res) => [null, res])
     .catch((err) => {
-      if (err.errCode) {
+      if (err.errCode === 10001) {
+        uni.$showMsg(`请先打开蓝牙！`);
+      } else if (err.errCode) {
         uni.$showMsg(`${err.errCode}`);
       }
       // throw new Error(err.errMsg);

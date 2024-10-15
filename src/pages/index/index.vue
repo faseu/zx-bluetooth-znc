@@ -47,8 +47,14 @@
     <view class="mode base-bg">
       <view>选择模式</view>
       <view class="mode-btn">
-        <view class="mode-btn-item" :style="mode === 1 ? 'background: #0B4F73' : ''" @click="changeMode(1)">睡眠模式</view>
-        <view class="mode-btn-item" :style="mode === 2 ? 'background: #0B4F73' : ''" @click="changeMode(2)">瑜伽模式</view>
+        <view class="mode-btn-item" :style="modeSleep ? 'background: #0B4F73' : ''" @click="changeModeSleep()">睡眠模式</view>
+        <view class="mode-btn-item" :style="modeYoga ? 'background: #0B4F73' : ''" @click="changeModeYoga()">瑜伽模式</view>
+      </view>
+      <view class="mode-other-btn">
+        <view class="mode-btn-item" :style="mode === 1 ? 'background: #0B4F73' : ''" @click="changeModeOther(1)">零重力</view>
+        <view class="mode-btn-item" :style="mode === 2 ? 'background: #0B4F73' : ''" @click="changeModeOther(2)">观影</view>
+        <view class="mode-btn-item" :style="mode === 3 ? 'background: #0B4F73' : ''" @click="changeModeOther(3)">阅读</view>
+        <view class="mode-btn-item" :style="mode === 4 ? 'background: #0B4F73' : ''" @click="changeModeOther(4)">游戏</view>
       </view>
     </view>
     <view class="shake base-bg" v-if="showHeaderShake">
@@ -122,12 +128,14 @@
         },
         bedHeader: 0,
         bedLeg: 0,
+        mode: 0,
+        modeSleep: false,
+        modeYoga: false,
         headerShakeOpen: false,
         headerShakeLevel: 1,
         footerShakeOpen: false,
         footerShakeLevel: 1,
         lightShakeOpen: false,
-        mode: 0,
         timing: 10,
         isSending: false,
         isSendNum: 1,
@@ -153,6 +161,9 @@
         if (connected) {
           this.deviceId = deviceId;
           this.onBLECharacteristicValueChange();
+          setTimeout(() => {
+            this.sendCommand('<CMD00:900:099>\r\n');
+          }, 800);
         } else {
           uni.$showMsg('连接断开，请重新连接！');
           this.deviceId = undefined;
@@ -194,7 +205,6 @@
           deviceId,
           deviceName
         }).then(() => {
-          this.sendCommand('<CMD00:900:099>\r\n');
           // this.sendCommand('<CMD06:001:998>\r\n');
           // this.sendCommand('<CMD06:002:997>\r\n');
           // this.sendCommand('<CMD06:003:996>\r\n');
@@ -320,22 +330,63 @@
         }
       },
       // 模式
-      changeMode(value) {
+      changeModeSleep() {
         if (!this.deviceId) {
           uni.$showMsg('请先连接蓝牙!');
           return;
         } else if (this.isSending) {
           return;
         }
-        if (this.mode === value) {
-          this.mode = 0;
+        this.modeYoga = false;
+        this.mode = 0;
+        if (this.modeSleep) {
+          this.modeSleep = !this.modeSleep;
+          this.sendCommand('<CMD00:010:989>\r\n');
+        } else {
+          this.modeSleep = !this.modeSleep;
+          this.sendCommand('<CMD00:004:995>\r\n');
+        }
+      },
+
+      changeModeYoga() {
+        if (!this.deviceId) {
+          uni.$showMsg('请先连接蓝牙!');
+          return;
+        } else if (this.isSending) {
           return;
         }
+        this.modeSleep = false;
+        this.mode = 0;
+        if (this.modeYoga) {
+          this.modeYoga = !this.modeYoga;
+          this.sendCommand('<CMD00:011:988>\r\n');
+        } else {
+          this.modeYoga = !this.modeYoga;
+          this.sendCommand('<CMD00:008:991>\r\n');
+        }
+      },
+
+      changeModeOther(value) {
+        if (!this.deviceId) {
+          uni.$showMsg('请先连接蓝牙!');
+          return;
+        } else if (this.isSending) {
+          return;
+        } else if (this.mode === value) {
+          return;
+        }
+
+        this.modeSleep = false;
+        this.modeYoga = false;
         this.mode = value;
         if (value === 1) {
-          this.sendCommand('<CMD00:004:995>\r\n');
-        } else {
           this.sendCommand('<CMD00:005:994>\r\n');
+        } else if (value === 2) {
+          this.sendCommand('<CMD00:006:993>\r\n');
+        } else if (value === 3) {
+          this.sendCommand('<CMD00:007:992>\r\n');
+        } else if (value === 4) {
+          this.sendCommand('<CMD00:009:990>\r\n');
         }
       },
       // 头震动
@@ -455,6 +506,9 @@
         } else if (this.isSending) {
           return;
         }
+        this.modeSleep = false;
+        this.modeYoga = false;
+        this.mode = 0;
         this.bedHeaderStyle.transform = `rotate(${value}deg)`;
         this.bedHeader = value;
         const perValue = ((value / 60) * 100).toFixed(0).toString().padStart(3, '0');
@@ -467,6 +521,9 @@
         } else if (this.isSending) {
           return;
         }
+        this.modeSleep = false;
+        this.modeYoga = false;
+        this.mode = 0;
         this.bedLeg = value;
         this.bedLegStyle.transform = `rotate(-${value}deg)`;
         const { xOffset, yOffset } = this.calculateOffset(80, 1, value);
@@ -708,7 +765,7 @@
     .mode {
       margin-top: 28rpx;
       width: 100%;
-      height: 300rpx;
+      height: 372rpx;
       padding: 48rpx 38rpx 0 38rpx;
       box-sizing: border-box;
       .mode-btn {
@@ -721,6 +778,22 @@
           height: 112rpx;
           background: #0e1d32;
           border-radius: 56px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+      }
+      .mode-other-btn {
+        margin-top: 32rpx;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        .mode-btn-item {
+          //width: 268rpx;
+          padding: 0 36rpx;
+          height: 60rpx;
+          background: #0e1d32;
+          border-radius: 24rpx;
           display: flex;
           align-items: center;
           justify-content: center;
