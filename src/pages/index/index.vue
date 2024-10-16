@@ -41,7 +41,7 @@
     </view>
     <view class="set-memory base-bg" @click="sendCommand('<CMD00:002:997>\r\n')">记忆角度设定</view>
     <view class="memory-row2">
-      <view class="reset base-bg" @click="sendCommand('<CMD00:001:998>\r\n')">一键放平</view>
+      <view class="reset base-bg" @click="handleFlattening()">一键放平</view>
       <view class="get-memory base-bg" @click="sendCommand('<CMD00:003:996>\r\n')">恢复记忆角度</view>
     </view>
     <view class="mode base-bg">
@@ -51,10 +51,10 @@
         <view class="mode-btn-item" :style="modeYoga ? 'background: #0B4F73' : ''" @click="changeModeYoga()">瑜伽模式</view>
       </view>
       <view class="mode-other-btn">
-        <view class="mode-btn-item" :style="mode === 1 ? 'background: #0B4F73' : ''" @click="changeModeOther(1)">零重力</view>
-        <view class="mode-btn-item" :style="mode === 2 ? 'background: #0B4F73' : ''" @click="changeModeOther(2)">观影</view>
-        <view class="mode-btn-item" :style="mode === 3 ? 'background: #0B4F73' : ''" @click="changeModeOther(3)">阅读</view>
-        <view class="mode-btn-item" :style="mode === 4 ? 'background: #0B4F73' : ''" @click="changeModeOther(4)">游戏</view>
+        <view class="mode-btn-item" @click="changeModeOther(1)">零重力</view>
+        <view class="mode-btn-item" @click="changeModeOther(2)">观影</view>
+        <view class="mode-btn-item" @click="changeModeOther(3)">阅读</view>
+        <view class="mode-btn-item" @click="changeModeOther(4)">游戏</view>
       </view>
     </view>
     <view class="shake base-bg" v-if="showHeaderShake">
@@ -81,12 +81,12 @@
         <view class="shake-level-item" :style="footerShakeLevel === 3 ? 'background: #0B4F73' : ''" @click="changeFooterShakeLevel(3)">三级</view>
       </view>
     </view>
-    <view class="light-timing" v-if="showLight">
-      <view class="light base-bg">
+    <view class="light-timing">
+      <view class="light base-bg" v-if="showLight">
         <text class="light-title">灯光</text>
         <mySwitch :isOpen="lightShakeOpen" @toggle="handleLightShakeOpen()" />
       </view>
-      <view class="timing base-bg" @click="showTimingPop()">
+      <view class="timing base-bg" @click="showTimingPop()" v-if="showHeaderShake || showFooterShake">
         <text class="timing-title">{{ `震动${timing}分钟` }}</text>
         <image class="bluetooth-arrow" src="../../static/home/right-arrow.png" alt="" />
       </view>
@@ -142,9 +142,9 @@
         sendValueString: '',
         getValueString: '',
         timer: null,
-        showHeaderShake: true,
-        showFooterShake: true,
-        showLight: true,
+        showHeaderShake: false,
+        showFooterShake: false,
+        showLight: false,
         isInit: true
       };
     },
@@ -260,6 +260,18 @@
                   case '<CMD01:072:927>': //倒计时30分钟
                     this.timing = 30;
                     break;
+                  case '<CMD01:008:991>': //瑜伽开
+                    this.modeYoga = true;
+                    break;
+                  case '<CMD01:011:988>': //瑜伽关
+                    this.modeYoga = false;
+                    break;
+                  case '<CMD01:004:995>': //睡眼模式开
+                    this.modeSleep = true;
+                    break;
+                  case '<CMD01:010:989>': //睡眼模式关
+                    this.modeSleep = false;
+                    break;
                 }
                 break;
               case '<CMD03': {
@@ -295,7 +307,7 @@
                 }
                 break;
             }
-            this.isInit = false;
+            // this.isInit = false;
           }
           this.getValueString = incrementSixthCharacter(str).substring(0, 15);
           if (this.sendValueString === this.getValueString) {
@@ -347,7 +359,18 @@
           this.sendCommand('<CMD00:004:995>\r\n');
         }
       },
-
+      // 放平
+      handleFlattening() {
+        if (!this.deviceId) {
+          uni.$showMsg('请先连接蓝牙!');
+          return;
+        } else if (this.isSending) {
+          return;
+        }
+        this.mode = 0;
+        this.sendCommand('<CMD00:001:998>\r\n');
+      },
+      //模式
       changeModeYoga() {
         if (!this.deviceId) {
           uni.$showMsg('请先连接蓝牙!');
@@ -372,10 +395,7 @@
           return;
         } else if (this.isSending) {
           return;
-        } else if (this.mode === value) {
-          return;
         }
-
         this.modeSleep = false;
         this.modeYoga = false;
         this.mode = value;
@@ -506,9 +526,6 @@
         } else if (this.isSending) {
           return;
         }
-        this.modeSleep = false;
-        this.modeYoga = false;
-        this.mode = 0;
         this.bedHeaderStyle.transform = `rotate(${value}deg)`;
         this.bedHeader = value;
         const perValue = ((value / 60) * 100).toFixed(0).toString().padStart(3, '0');
@@ -521,9 +538,6 @@
         } else if (this.isSending) {
           return;
         }
-        this.modeSleep = false;
-        this.modeYoga = false;
-        this.mode = 0;
         this.bedLeg = value;
         this.bedLegStyle.transform = `rotate(-${value}deg)`;
         const { xOffset, yOffset } = this.calculateOffset(80, 1, value);
@@ -797,6 +811,9 @@
           display: flex;
           align-items: center;
           justify-content: center;
+          &:active {
+            background: #1b2f4e;
+          }
         }
       }
     }
