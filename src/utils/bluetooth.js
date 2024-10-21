@@ -16,6 +16,7 @@ export function awaitWrapper(promise) {
     .then((res) => [null, res])
     .catch((err) => {
       if (err.errCode === 10001) {
+        uni.removeStorageSync('MS');
         uni.$showMsg(`请先打开蓝牙！`);
       } else if (err.errCode) {
         uni.$showMsg(`${err.errCode}`);

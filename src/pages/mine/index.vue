@@ -7,6 +7,11 @@
       <text class="upgrade-desc">{{ upgradable ? '有新的升级文件' : '' }}</text>
       <image class="upgrade-arrow" src="../../static/home/right-arrow.png" alt="" />
     </view>
+    <view class="upgrade" @click="localUpgrade">
+      <image class="upgrade-icon" src="../../static/mine/upgrade-icon.png" alt="" />
+      <text class="upgrade-title">本地升级</text>
+      <image class="upgrade-arrow" src="../../static/home/right-arrow.png" alt="" />
+    </view>
   </view>
 </template>
 
@@ -68,6 +73,11 @@
       goToUpgrade() {
         // if (!this.upgradable) return;
         uni.navigateTo({ url: '/pages/upgrade/index' });
+      },
+      localUpgrade() {
+        // 在本地用户文件目录下创建一个文件 hello.txt，写入内容 "hello, world"
+        const fs = wx.getFileSystemManager();
+        fs.writeFileSync(`${wx.env.USER_DATA_PATH}/hello.txt`, 'hello, world', 'utf8');
       },
       // 发送
       sendCommand(value) {

@@ -9,7 +9,7 @@
     </view>
     <template v-if="deviceId">
       <view class="title">我的设备</view>
-      <view class="my">
+      <view class="my" @click="handleCloseBluetooth()">
         <view class="my-left">{{ deviceName }}</view>
         <view class="my-right">已连接</view>
       </view>
@@ -90,6 +90,9 @@
       // closeBluetoothAdapter();
     },
     methods: {
+      handleCloseBluetooth() {
+        closeBluetoothAdapter();
+      },
       connectBluetooth({ deviceId, name }) {
         this.tempName = name;
         console.log(deviceId, name);
@@ -101,6 +104,7 @@
       initBluetooth() {
         initBluetooth({
           deviceFoundCb: (bluetoothDevices) => {
+            console.log(bluetoothDevices);
             this.bluetoothDevices = bluetoothDevices;
           }
         });

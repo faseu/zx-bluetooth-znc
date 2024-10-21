@@ -37,7 +37,7 @@ export async function initBluetooth({ deviceFoundCb, noFound }) {
     return;
   }
   onBluetoothDeviceFound(async () => {
-    const [, res] = await awaitWrapper(getBluetoothDevices());
+    console.log(res);
     const { devices: devicesGetArr } = res;
     bluetoothDevices = devicesGetArr.filter((item) => item.advertisServiceUUIDs && item.advertisServiceUUIDs.includes(advertisServiceUUID));
     deviceFoundCb(bluetoothDevices);

@@ -109,7 +109,7 @@
 <script>
   import mySwitch from '../../components/Switch/index';
   import { arrayBufferToString, incrementSixthCharacter, string2HexArray } from '../../utils/common';
-  import { onBLECharacteristicValueChange, onBLEConnectionStateChange, stopBluetoothDevicesDiscovery, writeBLECharacteristicValue } from '../../utils/bluetooth';
+  import { closeBluetoothAdapter, onBLECharacteristicValueChange, onBLEConnectionStateChange, stopBluetoothDevicesDiscovery, writeBLECharacteristicValue } from '../../utils/bluetooth';
   import { connectBluetooth, initBluetooth } from '../../components/Bluetooth/bluetooth';
   export default {
     name: 'indexPage',
@@ -172,6 +172,7 @@
       });
     },
     onLoad() {
+      closeBluetoothAdapter();
       const { deviceId } = uni.getStorageSync('MS');
       if (deviceId) {
         wx.showLoading({
@@ -272,16 +273,25 @@
                   case '<CMD01:010:989>': //睡眼模式关
                     this.modeSleep = false;
                     break;
+                  case '<CMD09:000:999>': {
+                    //查询连接名称
+                    const { deviceName } = uni.getStorageSync('MS');
+                    const lastSix = deviceName.slice(-6); // 获取字符串后6位
+                    const firstThree = lastSix.slice(0, 3); // 从后6位中获取前3位
+                    const lastThree = lastSix.slice(-3); // 从后6位中获取后3位
+                    this.sendCommand(`<CMD06:${firstThree}:${lastThree}>\r\n`);
+                    break;
+                  }
                 }
                 break;
               case '<CMD03': {
                 let value = str.substring(7, 10);
-                this.sliderChangeHeader(((value / 100) * 60).toFixed(0));
+                this.sliderChangeHeader(((value / 100) * 60).toFixed(0), true);
                 break;
               }
               case '<CMD05': {
                 let value = str.substring(7, 10);
-                this.sliderChangeLeg(((value / 100) * 30).toFixed(0));
+                this.sliderChangeLeg(((value / 100) * 30).toFixed(0), true);
                 break;
               }
               case '<CMD07':
@@ -519,7 +529,7 @@
       goBluetoothList() {
         uni.navigateTo({ url: '/pages/bluetooth/index' });
       },
-      sliderChangeHeader(value) {
+      sliderChangeHeader(value, isCallback) {
         if (!this.deviceId) {
           uni.$showMsg('请先连接蓝牙!');
           return;
@@ -529,9 +539,10 @@
         this.bedHeaderStyle.transform = `rotate(${value}deg)`;
         this.bedHeader = value;
         const perValue = ((value / 60) * 100).toFixed(0).toString().padStart(3, '0');
+        if (isCallback) return;
         this.sendCommand(`<CMD02:${perValue}:${999 - perValue}>\r\n`);
       },
-      sliderChangeLeg(value) {
+      sliderChangeLeg(value, isCallback) {
         if (!this.deviceId) {
           uni.$showMsg('请先连接蓝牙!');
           return;
@@ -543,6 +554,7 @@
         const { xOffset, yOffset } = this.calculateOffset(80, 1, value);
         this.bedFooterStyle.transform = `translateX(-${xOffset}rpx) translateY(-${yOffset}rpx)`;
         const perValue = ((value / 30) * 100).toFixed(0).toString().padStart(3, '0');
+        if (isCallback) return;
         this.sendCommand(`<CMD04:${perValue}:${999 - perValue}>\r\n`);
       },
       calculateOffset(width, height, angleInDegrees) {
