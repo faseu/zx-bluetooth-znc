@@ -15,13 +15,11 @@ export function awaitWrapper(promise) {
   return promise
     .then((res) => [null, res])
     .catch((err) => {
-      if (err.errCode === 10001) {
+      if (err.errCode) {
+        uni.$showMsg(`${errText[err.errCode]}(${err.errCode})`);
         uni.removeStorageSync('MS');
-        uni.$showMsg(`请先打开蓝牙！`);
-      } else if (err.errCode) {
-        uni.$showMsg(`${err.errCode}`);
+        // throw new Error(err.errMsg);
       }
-      // throw new Error(err.errMsg);
       return [err, null];
     });
 }

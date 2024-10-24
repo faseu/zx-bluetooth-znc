@@ -109,7 +109,7 @@
 <script>
   import mySwitch from '../../components/Switch/index';
   import { arrayBufferToString, incrementSixthCharacter, string2HexArray } from '../../utils/common';
-  import { closeBluetoothAdapter, onBLECharacteristicValueChange, onBLEConnectionStateChange, stopBluetoothDevicesDiscovery, writeBLECharacteristicValue } from '../../utils/bluetooth';
+  import { awaitWrapper, closeBluetoothAdapter, onBLECharacteristicValueChange, onBLEConnectionStateChange, stopBluetoothDevicesDiscovery, writeBLECharacteristicValue } from '../../utils/bluetooth';
   import { connectBluetooth, initBluetooth } from '../../components/Bluetooth/bluetooth';
   export default {
     name: 'indexPage',
@@ -157,23 +157,26 @@
         this.deviceId = deviceId;
         this.onBLECharacteristicValueChange();
       }
-      onBLEConnectionStateChange(({ deviceId, connected }) => {
-        if (connected) {
-          this.deviceId = deviceId;
-          this.onBLECharacteristicValueChange();
-          setTimeout(() => {
-            this.sendCommand('<CMD00:900:099>\r\n');
-          }, 800);
-        } else {
-          uni.$showMsg('连接断开，请重新连接！');
-          this.deviceId = undefined;
-          uni.removeStorageSync('MS');
-        }
-      });
+      awaitWrapper(
+        onBLEConnectionStateChange(({ deviceId, connected }) => {
+          if (connected) {
+            this.deviceId = deviceId;
+            this.onBLECharacteristicValueChange();
+            setTimeout(() => {
+              this.sendCommand('<CMD00:900:099>\r\n');
+            }, 800);
+          } else {
+            uni.$showMsg('连接已断开！');
+            this.deviceId = undefined;
+            uni.removeStorageSync('MS');
+          }
+        })
+      );
     },
     onLoad() {
-      closeBluetoothAdapter();
+      awaitWrapper(closeBluetoothAdapter());
       const { deviceId } = uni.getStorageSync('MS');
+      uni.setStorageSync('flag', true);
       if (deviceId) {
         wx.showLoading({
           title: '加载中...',
@@ -213,121 +216,125 @@
       },
       // 监听单片机返回的数据
       onBLECharacteristicValueChange() {
-        onBLECharacteristicValueChange((res) => {
-          let str = arrayBufferToString(res.value);
-          console.log('收到蓝牙设备数据:', str);
-          if (this.isInit) {
-            switch (str.substring(0, 6)) {
-              case '<CMD01':
-                switch (str.substring(0, 15)) {
-                  case '<CMD01:050:949>': //头震动关
-                    this.headerShakeOpen = false;
-                    this.headerShakeLevel = 1;
-                    break;
-                  case '<CMD01:051:948>': //头震一级
-                    this.headerShakeOpen = true;
-                    this.headerShakeLevel = 1;
-                    break;
-                  case '<CMD01:052:947>': //头震二级
-                    this.headerShakeOpen = true;
-                    this.headerShakeLevel = 2;
-                    break;
-                  case '<CMD01:053:946>': //头震三级
-                    this.headerShakeOpen = true;
-                    this.headerShakeLevel = 3;
-                    break;
-                  case '<CMD01:060:939>': //脚震动关
-                    this.footerShakeOpen = false;
-                    this.footerShakeLevel = 1;
-                    break;
-                  case '<CMD01:061:938>': //脚震一级
-                    this.footerShakeOpen = true;
-                    this.footerShakeLevel = 1;
-                    break;
-                  case '<CMD01:062:937>': //脚震二级
-                    this.footerShakeOpen = true;
-                    this.footerShakeLevel = 2;
-                    break;
-                  case '<CMD01:063:936>': //脚震三级
-                    this.footerShakeOpen = true;
-                    this.footerShakeLevel = 3;
-                    break;
-                  case '<CMD01:070:929>': //倒计时10分钟
-                    this.timing = 10;
-                    break;
-                  case '<CMD01:071:928>': //倒计时20分钟
-                    this.timing = 20;
-                    break;
-                  case '<CMD01:072:927>': //倒计时30分钟
-                    this.timing = 30;
-                    break;
-                  case '<CMD01:008:991>': //瑜伽开
-                    this.modeYoga = true;
-                    break;
-                  case '<CMD01:011:988>': //瑜伽关
-                    this.modeYoga = false;
-                    break;
-                  case '<CMD01:004:995>': //睡眼模式开
-                    this.modeSleep = true;
-                    break;
-                  case '<CMD01:010:989>': //睡眼模式关
-                    this.modeSleep = false;
-                    break;
-                  case '<CMD09:000:999>': {
-                    //查询连接名称
-                    const { deviceName } = uni.getStorageSync('MS');
-                    const lastSix = deviceName.slice(-6); // 获取字符串后6位
-                    const firstThree = lastSix.slice(0, 3); // 从后6位中获取前3位
-                    const lastThree = lastSix.slice(-3); // 从后6位中获取后3位
-                    this.sendCommand(`<CMD06:${firstThree}:${lastThree}>\r\n`);
-                    break;
+        awaitWrapper(
+          onBLECharacteristicValueChange((res) => {
+            let str = arrayBufferToString(res.value);
+            console.log('收到蓝牙设备数据:', str);
+            if (this.isInit) {
+              switch (str.substring(0, 6)) {
+                case '<CMD01':
+                  switch (str.substring(0, 15)) {
+                    case '<CMD01:050:949>': //头震动关
+                      this.headerShakeOpen = false;
+                      this.headerShakeLevel = 1;
+                      break;
+                    case '<CMD01:051:948>': //头震一级
+                      this.headerShakeOpen = true;
+                      this.headerShakeLevel = 1;
+                      break;
+                    case '<CMD01:052:947>': //头震二级
+                      this.headerShakeOpen = true;
+                      this.headerShakeLevel = 2;
+                      break;
+                    case '<CMD01:053:946>': //头震三级
+                      this.headerShakeOpen = true;
+                      this.headerShakeLevel = 3;
+                      break;
+                    case '<CMD01:060:939>': //脚震动关
+                      this.footerShakeOpen = false;
+                      this.footerShakeLevel = 1;
+                      break;
+                    case '<CMD01:061:938>': //脚震一级
+                      this.footerShakeOpen = true;
+                      this.footerShakeLevel = 1;
+                      break;
+                    case '<CMD01:062:937>': //脚震二级
+                      this.footerShakeOpen = true;
+                      this.footerShakeLevel = 2;
+                      break;
+                    case '<CMD01:063:936>': //脚震三级
+                      this.footerShakeOpen = true;
+                      this.footerShakeLevel = 3;
+                      break;
+                    case '<CMD01:070:929>': //倒计时10分钟
+                      this.timing = 10;
+                      break;
+                    case '<CMD01:071:928>': //倒计时20分钟
+                      this.timing = 20;
+                      break;
+                    case '<CMD01:072:927>': //倒计时30分钟
+                      this.timing = 30;
+                      break;
+                    case '<CMD01:008:991>': //瑜伽开
+                      this.modeYoga = true;
+                      break;
+                    case '<CMD01:011:988>': //瑜伽关
+                      this.modeYoga = false;
+                      break;
+                    case '<CMD01:004:995>': //睡眼模式开
+                      this.modeSleep = true;
+                      break;
+                    case '<CMD01:010:989>': //睡眼模式关
+                      this.modeSleep = false;
+                      break;
+                    case '<CMD09:000:999>': {
+                      //查询连接名称
+                      const { deviceName } = uni.getStorageSync('MS');
+                      const lastSix = deviceName.slice(-6); // 获取字符串后6位
+                      const firstThree = lastSix.slice(0, 3); // 从后6位中获取前3位
+                      const lastThree = lastSix.slice(-3); // 从后6位中获取后3位
+                      this.sendCommand(`<CMD06:${firstThree}:${lastThree}>\r\n`);
+                      break;
+                    }
                   }
+                  break;
+                case '<CMD03': {
+                  let value = str.substring(7, 10);
+                  this.sliderChangeHeader(((value / 100) * 60).toFixed(0), true);
+                  break;
                 }
-                break;
-              case '<CMD03': {
-                let value = str.substring(7, 10);
-                this.sliderChangeHeader(((value / 100) * 60).toFixed(0), true);
-                break;
-              }
-              case '<CMD05': {
-                let value = str.substring(7, 10);
-                this.sliderChangeLeg(((value / 100) * 30).toFixed(0), true);
-                break;
-              }
-              case '<CMD07':
-                switch (str.substring(0, 15)) {
-                  case '<CMD07:001:998>': //没有床头震动按摩功能
-                    this.showHeaderShake = false;
-                    break;
-                  case '<CMD07:101:898>': //有床头震动按摩功能
-                    this.showHeaderShake = true;
-                    break;
-                  case '<CMD07:002:997>': //没有床尾震动按摩功能
-                    this.showFooterShake = false;
-                    break;
-                  case '<CMD07:102:897>': //有床尾震动按摩功能
-                    this.showFooterShake = true;
-                    break;
-                  case '<CMD07:003:996>': //没有灯光功能
-                    this.showLight = false;
-                    break;
-                  case '<CMD07:103:896>': //有灯光功能
-                    this.showLight = true;
-                    break;
+                case '<CMD05': {
+                  let value = str.substring(7, 10);
+                  this.sliderChangeLeg(((value / 100) * 30).toFixed(0), true);
+                  break;
                 }
-                break;
+                case '<CMD07':
+                  switch (str.substring(0, 15)) {
+                    case '<CMD07:001:998>': //没有床头震动按摩功能
+                      this.showHeaderShake = false;
+                      break;
+                    case '<CMD07:101:898>': //有床头震动按摩功能
+                      this.showHeaderShake = true;
+                      break;
+                    case '<CMD07:002:997>': //没有床尾震动按摩功能
+                      this.showFooterShake = false;
+                      break;
+                    case '<CMD07:102:897>': //有床尾震动按摩功能
+                      this.showFooterShake = true;
+                      break;
+                    case '<CMD07:003:996>': //没有灯光功能
+                      this.showLight = false;
+                      break;
+                    case '<CMD07:103:896>': //有灯光功能
+                      this.showLight = true;
+                      break;
+                  }
+                  break;
+              }
+              // this.isInit = false;
             }
-            // this.isInit = false;
-          }
-          this.getValueString = incrementSixthCharacter(str).substring(0, 15);
-          if (this.sendValueString === this.getValueString) {
-            clearInterval(this.timer);
-            this.isSendNum = 1;
-            this.isSending = false;
-            uni.$showMsg('操作成功！');
-            console.log('this.sendValueString === this.getValueString');
-          }
-        });
+            this.getValueString = incrementSixthCharacter(str).substring(0, 15);
+            if (this.sendValueString === this.getValueString) {
+              clearInterval(this.timer);
+              this.isSendNum = 1;
+              this.isSending = false;
+              if (this.sendValueString !== '<CMD00:900:099>') {
+                uni.$showMsg('操作成功！');
+              }
+              console.log('this.sendValueString === this.getValueString');
+            }
+          })
+        );
       },
       // 定时
       changeTiming(value) {
@@ -503,11 +510,13 @@
         this.sendValueString = value.substring(0, 15);
         const hexArray = string2HexArray(value);
         const { write } = uni.getStorageSync('MS');
-        writeBLECharacteristicValue({
-          ...write,
-          value: hexArray,
-          callback: () => {}
-        });
+        awaitWrapper(
+          writeBLECharacteristicValue({
+            ...write,
+            value: hexArray,
+            callback: () => {}
+          })
+        );
         this.timer = setInterval(() => {
           if (this.isSendNum >= 3) {
             clearInterval(this.timer);
@@ -517,11 +526,13 @@
             this.isSending = false;
             return;
           }
-          writeBLECharacteristicValue({
-            ...write,
-            value: hexArray,
-            callback: () => {}
-          });
+          awaitWrapper(
+            writeBLECharacteristicValue({
+              ...write,
+              value: hexArray,
+              callback: () => {}
+            })
+          );
           this.isSendNum = this.isSendNum + 1;
         }, 1000);
       },

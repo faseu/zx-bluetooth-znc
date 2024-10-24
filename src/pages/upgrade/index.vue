@@ -8,7 +8,8 @@
     </template>
     <template v-if="steps === 2">
       <image class="upgrade-circle-img" src="../../static/mine/upgrade-bg-circle.png" alt="" />
-      <view class="upgrade-title">升级中...</view>
+      <view class="upgrade-title">{{ `升级中...(${percentage}%)` }}</view>
+      <view class="upgrade-desc">请勿断开蓝牙或退出</view>
     </template>
     <template v-if="steps === 3">
       <image class="upgrade-img" src="../../static/mine/upgrade-bg.png" alt="" />
@@ -37,7 +38,8 @@
         log: '',
         sequence: 1, // YMODEM 数据包的序列号从1开始
         offset: 0,
-        steps: 1
+        steps: 1,
+        percentage: 0
       };
     },
     async onLoad() {
@@ -106,9 +108,9 @@
       },
 
       sendCommand(value, isHexArray) {
-        console.log(arrayBufferToHex(value));
-        const str = isHexArray ? arrayBufferToString(value) : value;
-        uni.$showMsg('发送:' + str);
+        // console.log(arrayBufferToHex(value));
+        // const str = isHexArray ? arrayBufferToString(value) : value;
+        // uni.$showMsg('发送:' + str);
         // this.log = this.log + `发送:${str}\r\n`;
         const { write } = uni.getStorageSync('MS');
         writeBLECharacteristicValue({
@@ -136,9 +138,9 @@
       onBLECharacteristicValueChange() {
         uni.onBLECharacteristicValueChange((res) => {
           let str = arrayBufferToString(res.value);
-          uni.$showMsg('收到:' + str);
-          this.log = this.log + `收到:${str}(${arrayBufferToHex(res.value)})`;
-          console.log('收到蓝牙设备数据:', str);
+          // uni.$showMsg('收到:' + str);
+          // this.log = this.log + `收到:${str}(${arrayBufferToHex(res.value)})`;
+          // console.log('收到蓝牙设备数据:', str);
           if (str.substring(0, 15) === '<CMD01:000:999>') {
             console.log('准备进入boot引导模式');
             this.startYmodemTransfer();
@@ -176,8 +178,8 @@
         // // 监听 MCU 回复 ACK 然后发送文件数据
         uni.onBLECharacteristicValueChange((res) => {
           const str = arrayBufferToString(res.value);
-          uni.$showMsg('收到:' + str);
-          this.log = this.log + `收到:${str}(${arrayBufferToHex(res.value)})`;
+          // uni.$showMsg('收到:' + str);
+          // this.log = this.log + `收到:${str}(${arrayBufferToHex(res.value)})`;
           if ((arrayBufferToHex(res.value) === '06 43' || arrayBufferToHex(res.value) === '43 06' || arrayBufferToHex(res.value) === '06') && this.state === 0) {
             console.log('收到ACK, 开始发送文件数据...');
             this.state = 1;
@@ -253,14 +255,17 @@
 
         // 监听 ACK
         uni.onBLECharacteristicValueChange((res) => {
-          const str = arrayBufferToString(res.value);
-          uni.$showMsg('收到:' + str);
-          this.log = this.log + `收到:${str}(${arrayBufferToHex(res.value)})`;
+          // const str = arrayBufferToString(res.value);
+          // uni.$showMsg('收到:' + str);
+          // this.log = this.log + `收到:${str}(${arrayBufferToHex(res.value)})`;
           if ((arrayBufferToHex(res.value) === '06 43' || arrayBufferToHex(res.value) === '43 06' || arrayBufferToHex(res.value) === '06') && this.state === 2) {
             console.log(`第 ${this.sequence} 帧确认`);
             this.sequence = this.sequence + 1;
             this.offset += packetSize;
             if (this.offset < fileBuffer.byteLength) {
+              console.log(this.offset, fileBuffer.byteLength, (this.offset / fileBuffer.byteLength) * 100, ((this.offset / fileBuffer.byteLength) * 100).toFixed(0));
+              const temp = ((this.offset / fileBuffer.byteLength) * 100).toFixed(0);
+              this.percentage = temp > 100 ? 100 : temp;
               this.sendYmodemData(fileBuffer);
             } else {
               this.sendCommand(new Uint8Array([0x04]).buffer, true);

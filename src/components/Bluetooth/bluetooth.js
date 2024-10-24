@@ -25,8 +25,8 @@ import {
  */
 export async function initBluetooth({ deviceFoundCb, noFound }) {
   const advertisServiceUUID = '0000FFF0-0000-1000-8000-00805F9B34FB';
-  // const [err_close, res_close] = await awaitWrapper(closeBluetoothAdapter())
-  // console.log('[err_close, res_close]', [err_close, res_close])
+  // const [err_close, res_close] = await awaitWrapper(closeBluetoothAdapter());
+  // console.log('[err_close, res_close]', [err_close, res_close]);
   let bluetoothDevices = []; // 已发现的蓝牙列表
   const [err, res] = await awaitWrapper(openBluetoothAdapter());
   console.log('[err, res]', [err, res]);
@@ -37,6 +37,7 @@ export async function initBluetooth({ deviceFoundCb, noFound }) {
     return;
   }
   onBluetoothDeviceFound(async () => {
+    const [err, res] = await awaitWrapper(getBluetoothDevices());
     console.log(res);
     const { devices: devicesGetArr } = res;
     bluetoothDevices = devicesGetArr.filter((item) => item.advertisServiceUUIDs && item.advertisServiceUUIDs.includes(advertisServiceUUID));
@@ -54,67 +55,74 @@ export async function initBluetooth({ deviceFoundCb, noFound }) {
  * devicesName 用于存放本地 local 的蓝牙名称
  */
 export async function connectBluetooth({ deviceId, deviceName, devicesArr = [], needStop = true, connectStatusCb, advertisServiceUUID = '0000FFF0-0000-1000-8000-00805F9B34FB' }) {
-  let devices = {};
-  if (needStop) {
-    const [err2, res2] = await awaitWrapper(stopBluetoothDevicesDiscovery());
-    console.log('[err2, res2]', [err2, res2]);
-  }
-
-  const [err3, res3] = await awaitWrapper(createBLEConnection(deviceId));
-  if (err3 && err3.errCode) {
-    connectStatusCb && connectStatusCb(false);
-    return;
-  }
-  if (!devicesArr || !devicesArr.length) {
-    const [err4, res4] = await awaitWrapper(getBLEDeviceServices(deviceId));
-    console.log(res4);
-    const prList = [];
-    const pr = getBLEDeviceCharacteristics({ deviceId, serviceId: advertisServiceUUID }).catch((err) => err); // for Promise.all
-    prList.push(pr);
-
-    // res4.services.forEach((item) => {
-    //   let serviceId = item.uuid;
-    //   console.log('item, deviceId', item, deviceId);
-    //   const pr = getBLEDeviceCharacteristics({ deviceId, serviceId }).catch((err) => err); // for Promise.all
-    //   prList.push(pr);
-    // });
-    console.log(prList);
-    const [err5, res5] = await awaitWrapper(Promise.all(prList)); // error
-    console.log('[err5, res5]', res5);
-    devices['deviceId'] = deviceId;
-    devices['deviceName'] = deviceName;
-    devices['serviceId'] = advertisServiceUUID;
-    res5.forEach((item) => {
-      console.log(item);
-      if (!item.errCode) {
-        const serviceId = item.serviceId;
-        item.characteristics.forEach((characteristic) => {
-          if (characteristic.properties['write']) {
-            let characteristicId = characteristic.uuid;
-            console.log(' deviceId = [' + deviceId + ']  serviceId = [' + serviceId + '] characteristics=[' + characteristicId);
-            devices['write'] = {
-              deviceId,
-              serviceId,
-              characteristicId
-            };
-          }
-          if (characteristic.properties['notify']) {
-            let characteristicId = characteristic.uuid;
-            console.log(' deviceId = [' + deviceId + ']  serviceId = [' + serviceId + '] characteristics=[' + characteristicId);
-            devices['notify'] = {
-              deviceId,
-              serviceId,
-              characteristicId
-            };
-          }
-        });
-      }
-    });
-    console.log(devices);
-    uni.setStorageSync('MS', devices);
-    if (devices.notify) {
-      notifyBLECharacteristicValueChange(devices.notify).catch((err) => err);
+  wx.showLoading({
+    title: '连接中...',
+    mask: true
+  });
+  try {
+    let devices = {};
+    if (needStop) {
+      const [err2, res2] = await awaitWrapper(stopBluetoothDevicesDiscovery());
+      console.log('[err2, res2]', [err2, res2]);
     }
+    const [err3, res3] = await awaitWrapper(createBLEConnection(deviceId));
+    if (err3 && err3.errCode) {
+      connectStatusCb && connectStatusCb(false);
+      return;
+    }
+    if (!devicesArr || !devicesArr.length) {
+      const [err4, res4] = await awaitWrapper(getBLEDeviceServices(deviceId));
+      console.log(res4);
+      const prList = [];
+      const pr = getBLEDeviceCharacteristics({ deviceId, serviceId: advertisServiceUUID }).catch((err) => err); // for Promise.all
+      prList.push(pr);
+
+      // res4.services.forEach((item) => {
+      //   let serviceId = item.uuid;
+      //   console.log('item, deviceId', item, deviceId);
+      //   const pr = getBLEDeviceCharacteristics({ deviceId, serviceId }).catch((err) => err); // for Promise.all
+      //   prList.push(pr);
+      // });
+      console.log(prList);
+      const [err5, res5] = await awaitWrapper(Promise.all(prList)); // error
+      console.log('[err5, res5]', res5);
+      devices['deviceId'] = deviceId;
+      devices['deviceName'] = deviceName;
+      devices['serviceId'] = advertisServiceUUID;
+      res5.forEach((item) => {
+        console.log(item);
+        if (!item.errCode) {
+          const serviceId = item.serviceId;
+          item.characteristics.forEach((characteristic) => {
+            if (characteristic.properties['write']) {
+              let characteristicId = characteristic.uuid;
+              console.log(' deviceId = [' + deviceId + ']  serviceId = [' + serviceId + '] characteristics=[' + characteristicId);
+              devices['write'] = {
+                deviceId,
+                serviceId,
+                characteristicId
+              };
+            }
+            if (characteristic.properties['notify']) {
+              let characteristicId = characteristic.uuid;
+              console.log(' deviceId = [' + deviceId + ']  serviceId = [' + serviceId + '] characteristics=[' + characteristicId);
+              devices['notify'] = {
+                deviceId,
+                serviceId,
+                characteristicId
+              };
+            }
+          });
+        }
+      });
+      console.log(devices);
+      uni.setStorageSync('MS', devices);
+      if (devices.notify) {
+        notifyBLECharacteristicValueChange(devices.notify).catch((err) => err);
+      }
+    }
+  } catch (e) {
+    console.error(e);
   }
 }
 

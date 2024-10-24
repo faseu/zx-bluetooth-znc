@@ -1,9 +1,9 @@
 <template>
   <view class="content">
-    <view class="state">
+    <view class="state" @click="switchBluetooth()">
       <view class="bluetooth-left">蓝牙</view>
       <view class="bluetooth-right">
-        <text class="bluetooth-text">开</text>
+        <text class="bluetooth-text">{{ switchFlag ? '开' : '关' }}</text>
         <image class="bluetooth-arrow" src="../../static/home/right-arrow.png" alt="" />
       </view>
     </view>
@@ -14,21 +14,21 @@
         <view class="my-right">已连接</view>
       </view>
     </template>
-    <view class="title">可用设备...</view>
+    <view class="title">可用设备</view>
     <view class="usable">
       <view class="usable-item" v-for="device in showBluetoothDevices" :key="device.deviceId" @click="connectBluetooth(device)">
         <view class="usable-left">{{ device.name }}</view>
         <view class="usable-right">{{ device.deviceId === deviceId ? '已连接' : '未连接' }}</view>
       </view>
     </view>
+    <view class="searching" v-if="switchFlag">{{ loadingText }}</view>
   </view>
 </template>
 
 <script>
-  import { initBluetooth, connectBluetooth, autoConnectBluetooth } from '@/components/Bluetooth/bluetooth.js';
+  import { initBluetooth, connectBluetooth } from '@/components/Bluetooth/bluetooth.js';
 
-  import { closeBluetoothAdapter, closeBLEConnection, awaitWrapper, startBluetoothDevicesDiscovery, writeBLECharacteristicValue } from '@/utils/bluetooth.js';
-  import { arrayBufferToString } from '../../utils/common';
+  import { closeBluetoothAdapter, closeBLEConnection, awaitWrapper, writeBLECharacteristicValue } from '@/utils/bluetooth.js';
   import { onBLEConnectionStateChange, stopBluetoothDevicesDiscovery } from '../../utils/bluetooth';
 
   export default {
@@ -41,6 +41,7 @@
     },
     data() {
       return {
+        switchFlag: true,
         deviceId: undefined, //
         deviceName: undefined, //
         tempName: '', //
@@ -52,7 +53,8 @@
         iosDone: false,
         property: 'write',
         writeDevice: {},
-        timer: 0
+        timer: 0,
+        loadingText: '搜索中'
       };
     },
     computed: {
@@ -66,32 +68,53 @@
         this.deviceId = deviceId;
         this.deviceName = deviceName;
       }
-      onBLEConnectionStateChange(({ deviceId, connected }) => {
-        if (connected) {
-          this.deviceId = deviceId;
-          this.deviceName = this.tempName;
-        } else {
-          this.deviceId = undefined;
-          uni.removeStorageSync('MS');
-        }
-      });
+      awaitWrapper(
+        onBLEConnectionStateChange(({ deviceId, connected }) => {
+          if (connected) {
+            this.deviceId = deviceId;
+            this.deviceName = this.tempName;
+          } else {
+            this.deviceId = undefined;
+            uni.removeStorageSync('MS');
+          }
+        })
+      );
     },
     mounted() {
-      wx.showLoading({
-        title: '加载中...',
-        mask: true
-      });
-      setTimeout(() => {
+      this.switchFlag = uni.getStorageSync('flag');
+      if (this.switchFlag) {
         this.initBluetooth();
-        wx.hideLoading();
-      }, 1000);
+        let dotCount = 0;
+        setInterval(() => {
+          dotCount = (dotCount + 1) % 4;
+          this.loadingText = '搜索中' + '.'.repeat(dotCount);
+        }, 500);
+      }
     },
     beforeUnmount() {
-      // closeBluetoothAdapter();
+      awaitWrapper(stopBluetoothDevicesDiscovery());
     },
     methods: {
+      switchBluetooth() {
+        if (this.switchFlag) {
+          this.handleCloseBluetooth();
+          awaitWrapper(closeBluetoothAdapter());
+          this.switchFlag = false;
+          uni.setStorageSync('flag', false);
+          uni.$showMsg('已关闭');
+          this.bluetoothDevices = [];
+        } else {
+          this.initBluetooth();
+          this.switchFlag = true;
+          uni.setStorageSync('flag', true);
+        }
+      },
       handleCloseBluetooth() {
-        closeBluetoothAdapter();
+        awaitWrapper(closeBLEConnection(this.deviceId));
+        // awaitWrapper(closeBluetoothAdapter());
+        uni.removeStorageSync('MS');
+        this.deviceId = undefined;
+        this.deviceName = undefined;
       },
       connectBluetooth({ deviceId, name }) {
         this.tempName = name;
@@ -104,7 +127,6 @@
       initBluetooth() {
         initBluetooth({
           deviceFoundCb: (bluetoothDevices) => {
-            console.log(bluetoothDevices);
             this.bluetoothDevices = bluetoothDevices;
           }
         });
@@ -194,7 +216,16 @@
         box-sizing: border-box;
       }
     }
+
+    .searching {
+      margin-top: 20rpx;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      font-size: 20rpx;
+    }
   }
+
   .flex-between {
     display: flex;
     align-items: center;

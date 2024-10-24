@@ -7,17 +7,17 @@
       <text class="upgrade-desc">{{ upgradable ? '有新的升级文件' : '' }}</text>
       <image class="upgrade-arrow" src="../../static/home/right-arrow.png" alt="" />
     </view>
-    <view class="upgrade" @click="localUpgrade">
-      <image class="upgrade-icon" src="../../static/mine/upgrade-icon.png" alt="" />
-      <text class="upgrade-title">本地升级</text>
-      <image class="upgrade-arrow" src="../../static/home/right-arrow.png" alt="" />
-    </view>
+    <!--    <view class="upgrade" @click="localUpgrade">-->
+    <!--      <image class="upgrade-icon" src="../../static/mine/upgrade-icon.png" alt="" />-->
+    <!--      <text class="upgrade-title">本地升级</text>-->
+    <!--      <image class="upgrade-arrow" src="../../static/home/right-arrow.png" alt="" />-->
+    <!--    </view>-->
   </view>
 </template>
 
 <script>
-  import { arrayBufferToHex, arrayBufferToString, string2HexArray } from '../../utils/common';
-  import { writeBLECharacteristicValue } from '../../utils/bluetooth';
+  import { arrayBufferToString, string2HexArray } from '../../utils/common';
+  import { awaitWrapper, writeBLECharacteristicValue } from '../../utils/bluetooth';
 
   export default {
     name: 'minePage',
@@ -35,34 +35,25 @@
         return Number(this.webVersion) > Number(this.version);
       }
     },
-    async onLoad() {
-      this.onBLECharacteristicValueChange();
-      this.sendCommand('<CMD06:005:994>\r\n');
-      await this.initcloud();
-      const db = wx.cloud.database();
-      db.collection('OTA')
-        .orderBy('file_version', 'desc')
-        .limit(1)
-        .get({
-          success: (res) => {
-            console.log(res.data[0]);
-            this.webVersion = res.data[0].file_version;
-            // 下载文件
-            uni.downloadFile({
-              url: res.data[0].OTA_file, // 网络文件URL
-              success: (res) => {
-                if (res.statusCode === 200) {
-                  console.log('文件下载成功', res.tempFilePath);
-                  // 读取下载的文件
-                  // this.readFileAsArrayBuffer(res.tempFilePath);
-                }
-              },
-              fail: (err) => {
-                console.error('文件下载失败', err);
-              }
-            });
-          }
-        });
+    async onShow() {
+      this.version = undefined;
+      this.webVersion = undefined;
+      const { deviceId } = uni.getStorageSync('MS');
+      if (deviceId) {
+        this.onBLECharacteristicValueChange();
+        this.sendCommand('<CMD06:005:994>\r\n');
+        await this.initcloud();
+        const db = wx.cloud.database();
+        db.collection('OTA')
+          .orderBy('file_version', 'desc')
+          .limit(1)
+          .get({
+            success: (res) => {
+              console.log(res.data[0]);
+              this.webVersion = res.data[0].file_version;
+            }
+          });
+      }
     },
     methods: {
       async initcloud() {
@@ -71,7 +62,15 @@
         });
       },
       goToUpgrade() {
-        // if (!this.upgradable) return;
+        const { deviceId } = uni.getStorageSync('MS');
+        if (!deviceId) {
+          uni.$showMsg('请先连接蓝牙！');
+          return;
+        }
+        if (!this.upgradable) {
+          uni.$showMsg('最新版本无需升级！');
+          return;
+        }
         uni.navigateTo({ url: '/pages/upgrade/index' });
       },
       localUpgrade() {
@@ -85,11 +84,13 @@
         this.isSending = true;
         const hexArray = string2HexArray(value);
         const { write } = uni.getStorageSync('MS');
-        writeBLECharacteristicValue({
-          ...write,
-          value: hexArray,
-          callback: () => {}
-        });
+        awaitWrapper(
+          writeBLECharacteristicValue({
+            ...write,
+            value: hexArray,
+            callback: () => {}
+          })
+        );
         this.timer = setInterval(() => {
           if (this.isSendNum >= 3) {
             clearInterval(this.timer);
@@ -99,11 +100,13 @@
             this.isSending = false;
             return;
           }
-          writeBLECharacteristicValue({
-            ...write,
-            value: hexArray,
-            callback: () => {}
-          });
+          awaitWrapper(
+            writeBLECharacteristicValue({
+              ...write,
+              value: hexArray,
+              callback: () => {}
+            })
+          );
           this.isSendNum = this.isSendNum + 1;
         }, 1000);
       },
