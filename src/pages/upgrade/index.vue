@@ -24,7 +24,6 @@
 </template>
 
 <script>
-  import filePath from '../../static/app.bin';
   import { awaitWrapper, getBluetoothAdapterState, writeBLECharacteristicValue } from '../../utils/bluetooth';
   import { arrayBufferToHex, arrayBufferToString, string2HexArray } from '../../utils/common';
   // 获取全局的文件管理器
@@ -39,59 +38,33 @@
         sequence: 1, // YMODEM 数据包的序列号从1开始
         offset: 0,
         steps: 1,
-        percentage: 0
+        percentage: 0,
+        fileUrl: ''
       };
     },
-    async onLoad() {
+    async onLoad(options) {
+      await awaitWrapper(getBluetoothAdapterState());
       this.onBLECharacteristicValueChange();
-      // this.readFileAsArrayBuffer(filePath);
-      // 读取文件内容;
-      // fileSystemManager.readFile({
-      //   filePath: filePath,
-      //   encoding: 'binary', // 读取为二进制文件
-      //   success: (res) => {
-      //     console.log('读取文件成功:', res.data);
-      //
-      //     this.startYmodemTransfer(res.data); // 将数据传递给 Ymodem 升级函数
-      //   },
-      //   fail: (err) => {
-      //     console.error('读取文件失败:', err);
-      //   }
-      // });
+      this.fileUrl = options.fileUrl;
       await this.downloadFile();
-      const [err0, res0] = await awaitWrapper(getBluetoothAdapterState());
-      console.log(err0, res0);
+      if (options.execute) {
+        this.handleUpgrade();
+      }
     },
     methods: {
       async downloadFile() {
-        await this.initcloud();
-        const db = wx.cloud.database();
-        db.collection('OTA')
-          .orderBy('file_version', 'desc')
-          .limit(1)
-          .get({
-            success: (res) => {
-              console.log(res.data[0]);
-              // 下载文件
-              uni.downloadFile({
-                url: res.data[0].OTA_file, // 网络文件URL
-                success: (res) => {
-                  if (res.statusCode === 200) {
-                    console.log('文件下载成功', res.tempFilePath);
-                    // 读取下载的文件
-                    this.readFileAsArrayBuffer(res.tempFilePath);
-                  }
-                },
-                fail: (err) => {
-                  console.error('文件下载失败', err);
-                }
-              });
+        uni.downloadFile({
+          url: this.fileUrl, // 网络文件URL
+          success: (res) => {
+            if (res.statusCode === 200) {
+              console.log('文件下载成功', res.tempFilePath);
+              // 读取下载的文件
+              this.readFileAsArrayBuffer(res.tempFilePath);
             }
-          });
-      },
-      async initcloud() {
-        wx.cloud.init({
-          env: 'cloud-9g58dj443a4cc4c6'
+          },
+          fail: (err) => {
+            console.error('文件下载失败', err);
+          }
         });
       },
 
@@ -108,10 +81,6 @@
       },
 
       sendCommand(value, isHexArray) {
-        // console.log(arrayBufferToHex(value));
-        // const str = isHexArray ? arrayBufferToString(value) : value;
-        // uni.$showMsg('发送:' + str);
-        // this.log = this.log + `发送:${str}\r\n`;
         const { write } = uni.getStorageSync('MS');
         writeBLECharacteristicValue({
           ...write,

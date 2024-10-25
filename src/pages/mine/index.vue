@@ -17,7 +17,7 @@
 
 <script>
   import { arrayBufferToString, string2HexArray } from '../../utils/common';
-  import { awaitWrapper, writeBLECharacteristicValue } from '../../utils/bluetooth';
+  import { awaitWrapper, onBLECharacteristicValueChange, writeBLECharacteristicValue } from '../../utils/bluetooth';
 
   export default {
     name: 'minePage',
@@ -27,7 +27,8 @@
         isSendNum: 1,
         timer: null,
         version: undefined,
-        webVersion: undefined
+        webVersion: undefined,
+        fileUrl: ''
       };
     },
     computed: {
@@ -42,17 +43,6 @@
       if (deviceId) {
         this.onBLECharacteristicValueChange();
         this.sendCommand('<CMD06:005:994>\r\n');
-        await this.initcloud();
-        const db = wx.cloud.database();
-        db.collection('OTA')
-          .orderBy('file_version', 'desc')
-          .limit(1)
-          .get({
-            success: (res) => {
-              console.log(res.data[0]);
-              this.webVersion = res.data[0].file_version;
-            }
-          });
       }
     },
     methods: {
@@ -71,7 +61,7 @@
           uni.$showMsg('最新版本无需升级！');
           return;
         }
-        uni.navigateTo({ url: '/pages/upgrade/index' });
+        uni.navigateTo({ url: `/pages/upgrade/index?fileUrl=${this.fileUrl}` });
       },
       localUpgrade() {
         // 在本地用户文件目录下创建一个文件 hello.txt，写入内容 "hello, world"
@@ -112,17 +102,41 @@
       },
       // 监听单片机返回的数据
       onBLECharacteristicValueChange() {
-        uni.onBLECharacteristicValueChange((res) => {
-          let str = arrayBufferToString(res.value);
-          let version = str.slice(-3);
-          if (str.substring(0, 7) === 'VERSION') {
-            //VERSION:V001-001
-            clearInterval(this.timer);
-            this.isSendNum = 1;
-            this.isSending = false;
-            this.version = version;
-          }
-        });
+        awaitWrapper(
+          onBLECharacteristicValueChange((res) => {
+            let str = arrayBufferToString(res.value);
+            // VERSION:V001-001
+            const flag = str.split(':')[0];
+            if (flag === 'VERSION') {
+              const firmware = str.split(':')[1].split('-')[0];
+              const version = str.split(':')[1].split('-')[1];
+              this.getCloudVersion(firmware);
+              clearInterval(this.timer);
+              this.isSendNum = 1;
+              this.isSending = false;
+              this.version = version;
+            }
+          })
+        );
+      },
+
+      async getCloudVersion(firmware) {
+        await this.initcloud();
+        const db = wx.cloud.database();
+        await db
+          .collection('OTA')
+          .where({
+            firmware
+          })
+          .orderBy('file_version', 'desc')
+          .limit(1)
+          .get({
+            success: (res) => {
+              console.log(res.data[0]);
+              this.webVersion = res.data[0].file_version;
+              this.fileUrl = res.data[0].OTA_file;
+            }
+          });
       }
     }
   };

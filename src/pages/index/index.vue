@@ -145,7 +145,9 @@
         showHeaderShake: false,
         showFooterShake: false,
         showLight: false,
-        isInit: true
+        isInit: true,
+        isUpgrading: false,
+        fileUrl: ''
       };
     },
     components: {
@@ -219,7 +221,16 @@
         awaitWrapper(
           onBLECharacteristicValueChange((res) => {
             let str = arrayBufferToString(res.value);
-            console.log('收到蓝牙设备数据:', str);
+            // VERSION:V001-001
+            const flag = str.split(':')[0];
+            if (flag === 'VERSION' && this.isUpgrading) {
+              const firmware = str.split(':')[1].split('-')[0];
+              this.getCloudVersion(firmware);
+              clearInterval(this.timer);
+              this.isSendNum = 1;
+              this.isSending = false;
+              uni.navigateTo({ url: `/pages/upgrade/index?fileUrl=${this.fileUrl}&execute=true` });
+            }
             if (this.isInit) {
               switch (str.substring(0, 6)) {
                 case '<CMD01':
@@ -284,6 +295,11 @@
                       const firstThree = lastSix.slice(0, 3); // 从后6位中获取前3位
                       const lastThree = lastSix.slice(-3); // 从后6位中获取后3位
                       this.sendCommand(`<CMD06:${firstThree}:${lastThree}>\r\n`);
+                      break;
+                    }
+                    case '<CMD11:000:999>': {
+                      this.isUpgrading = true;
+                      this.sendCommand('<CMD06:005:994>\r\n');
                       break;
                     }
                   }
@@ -580,6 +596,25 @@
           xOffset: width - xOffset,
           yOffset: yOffset
         };
+      },
+
+      async getCloudVersion(firmware) {
+        await this.initcloud();
+        const db = wx.cloud.database();
+        await db
+          .collection('OTA')
+          .where({
+            firmware
+          })
+          .orderBy('file_version', 'desc')
+          .limit(1)
+          .get({
+            success: (res) => {
+              console.log(res.data[0]);
+              this.webVersion = res.data[0].file_version;
+              this.fileUrl = res.data[0].OTA_file;
+            }
+          });
       }
     }
   };
