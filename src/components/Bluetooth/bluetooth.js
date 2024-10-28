@@ -29,22 +29,22 @@ export async function initBluetooth({ deviceFoundCb, noFound }) {
   // console.log('[err_close, res_close]', [err_close, res_close]);
   let bluetoothDevices = []; // 已发现的蓝牙列表
   const [err, res] = await awaitWrapper(openBluetoothAdapter());
-  console.log('[err, res]', [err, res]);
+  // console.log('[err, res]', [err, res]);
   const [err0, res0] = await awaitWrapper(getBluetoothAdapterState());
-  console.log('[err0, res0]', [err0, res0]);
+  // console.log('[err0, res0]', [err0, res0]);
   if (noFound) {
     noFound();
     return;
   }
   onBluetoothDeviceFound(async () => {
     const [err, res] = await awaitWrapper(getBluetoothDevices());
-    console.log(res);
+    // console.log(res);
     const { devices: devicesGetArr } = res;
     bluetoothDevices = devicesGetArr.filter((item) => item.advertisServiceUUIDs && item.advertisServiceUUIDs.includes(advertisServiceUUID));
     deviceFoundCb(bluetoothDevices);
   });
   const [err1, res1] = await awaitWrapper(startBluetoothDevicesDiscovery());
-  console.log('[err1, res1]', [err1, res1]);
+  // console.log('[err1, res1]', [err1, res1]);
 }
 
 /**
@@ -63,7 +63,7 @@ export async function connectBluetooth({ deviceId, deviceName, devicesArr = [], 
     let devices = {};
     if (needStop) {
       const [err2, res2] = await awaitWrapper(stopBluetoothDevicesDiscovery());
-      console.log('[err2, res2]', [err2, res2]);
+      // console.log('[err2, res2]', [err2, res2]);
     }
     const [err3, res3] = await awaitWrapper(createBLEConnection(deviceId));
     if (err3 && err3.errCode) {
@@ -72,7 +72,7 @@ export async function connectBluetooth({ deviceId, deviceName, devicesArr = [], 
     }
     if (!devicesArr || !devicesArr.length) {
       const [err4, res4] = await awaitWrapper(getBLEDeviceServices(deviceId));
-      console.log(res4);
+      // console.log(res4);
       const prList = [];
       const pr = getBLEDeviceCharacteristics({ deviceId, serviceId: advertisServiceUUID }).catch((err) => err); // for Promise.all
       prList.push(pr);
@@ -83,20 +83,20 @@ export async function connectBluetooth({ deviceId, deviceName, devicesArr = [], 
       //   const pr = getBLEDeviceCharacteristics({ deviceId, serviceId }).catch((err) => err); // for Promise.all
       //   prList.push(pr);
       // });
-      console.log(prList);
+      // console.log(prList);
       const [err5, res5] = await awaitWrapper(Promise.all(prList)); // error
-      console.log('[err5, res5]', res5);
+      // console.log('[err5, res5]', res5);
       devices['deviceId'] = deviceId;
       devices['deviceName'] = deviceName;
       devices['serviceId'] = advertisServiceUUID;
       res5.forEach((item) => {
-        console.log(item);
+        // console.log(item);
         if (!item.errCode) {
           const serviceId = item.serviceId;
           item.characteristics.forEach((characteristic) => {
             if (characteristic.properties['write']) {
               let characteristicId = characteristic.uuid;
-              console.log(' deviceId = [' + deviceId + ']  serviceId = [' + serviceId + '] characteristics=[' + characteristicId);
+              // console.log(' deviceId = [' + deviceId + ']  serviceId = [' + serviceId + '] characteristics=[' + characteristicId);
               devices['write'] = {
                 deviceId,
                 serviceId,
@@ -105,7 +105,7 @@ export async function connectBluetooth({ deviceId, deviceName, devicesArr = [], 
             }
             if (characteristic.properties['notify']) {
               let characteristicId = characteristic.uuid;
-              console.log(' deviceId = [' + deviceId + ']  serviceId = [' + serviceId + '] characteristics=[' + characteristicId);
+              // console.log(' deviceId = [' + deviceId + ']  serviceId = [' + serviceId + '] characteristics=[' + characteristicId);
               devices['notify'] = {
                 deviceId,
                 serviceId,
@@ -115,7 +115,7 @@ export async function connectBluetooth({ deviceId, deviceName, devicesArr = [], 
           });
         }
       });
-      console.log(devices);
+      // console.log(devices);
       uni.setStorageSync('MS', devices);
       if (devices.notify) {
         notifyBLECharacteristicValueChange(devices.notify).catch((err) => err);
@@ -136,16 +136,16 @@ export async function autoConnectBluetooth({ connectionStateChangeCb, devicesNam
   // console.log('[err_close, res_close]', [err_close, res_close])
   let bluetoothDevices = []; // 已发现的蓝牙列表
   const [err, res] = await awaitWrapper(openBluetoothAdapter());
-  console.log('[err, res]', [err, res]);
+  // console.log('[err, res]', [err, res]);
   const [err0, res0] = await awaitWrapper(getBluetoothAdapterState());
-  console.log('[err0, res0]', [err0, res0]);
+  // console.log('[err0, res0]', [err0, res0]);
   if (devicesNameArr) {
     // 如果传入的是字符串，将其转为数组
     if (!Array.isArray(devicesNameArr)) {
       devicesNameArr = [devicesNameArr];
     }
     const localDevice = uni.getStorageSync(devicesNameArr[0]);
-    console.log('localDevice', localDevice);
+    // console.log('localDevice', localDevice);
     if (localDevice) {
       onBLEConnectionStateChange(connectionStateChangeCb);
       connectBluetooth({
@@ -165,7 +165,7 @@ export async function autoConnectBluetooth({ connectionStateChangeCb, devicesNam
         bluetoothDevices = devicesGetArr.filter((item) => devicesNameArr.indexOf(item.name) > -1);
         if (devicesNameArr.indexOf(devices[0].name) > -1 && !isConnected) {
           isConnected = true;
-          console.log('devicesGetArr', bluetoothDevices);
+          // console.log('devicesGetArr', bluetoothDevices);
           onBLEConnectionStateChange(connectionStateChangeCb);
           connectBluetooth({
             deviceId: devices[0].deviceId,
@@ -176,11 +176,11 @@ export async function autoConnectBluetooth({ connectionStateChangeCb, devicesNam
           });
         }
         if (devices[0].name) {
-          console.log('onBluetoothDeviceFound, devices2', devices);
+          // console.log('onBluetoothDeviceFound, devices2', devices);
         }
       });
       const [err1, res1] = await awaitWrapper(startBluetoothDevicesDiscovery());
-      console.log('[err1, res1]', [err1, res1]);
+      // console.log('[err1, res1]', [err1, res1]);
     }
   } else {
     uni.$showMsg('连接失败!');

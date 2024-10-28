@@ -61,7 +61,8 @@
           uni.$showMsg('最新版本无需升级！');
           return;
         }
-        uni.navigateTo({ url: `/pages/upgrade/index?fileUrl=${this.fileUrl}` });
+        const params = JSON.stringify({ fileUrl: this.fileUrl, immediately: false });
+        uni.navigateTo({ url: `/pages/upgrade/index?params=${encodeURIComponent(params)}` });
       },
       localUpgrade() {
         // 在本地用户文件目录下创建一个文件 hello.txt，写入内容 "hello, world"
@@ -105,6 +106,7 @@
         awaitWrapper(
           onBLECharacteristicValueChange((res) => {
             let str = arrayBufferToString(res.value);
+            console.log(`收到：${str}`);
             // VERSION:V001-001
             const flag = str.split(':')[0];
             if (flag === 'VERSION') {

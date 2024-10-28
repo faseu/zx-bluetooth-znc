@@ -221,6 +221,7 @@
         awaitWrapper(
           onBLECharacteristicValueChange((res) => {
             let str = arrayBufferToString(res.value);
+            console.log(`收到：${str}`);
             // VERSION:V001-001
             const flag = str.split(':')[0];
             if (flag === 'VERSION' && this.isUpgrading) {
@@ -229,7 +230,22 @@
               clearInterval(this.timer);
               this.isSendNum = 1;
               this.isSending = false;
-              uni.navigateTo({ url: `/pages/upgrade/index?fileUrl=${this.fileUrl}&execute=true` });
+            }
+            switch (str.substring(0, 15)) {
+              case '<CMD09:000:999>': {
+                //查询连接名称
+                const { deviceName } = uni.getStorageSync('MS');
+                const lastSix = deviceName.slice(-6); // 获取字符串后6位
+                const firstThree = lastSix.slice(0, 3); // 从后6位中获取前3位
+                const lastThree = lastSix.slice(-3); // 从后6位中获取后3位
+                this.sendCommand(`<CMD06:${firstThree}:${lastThree}>\r\n`);
+                break;
+              }
+              case '<CMD11:000:999>': {
+                this.isUpgrading = true;
+                this.sendCommand('<CMD06:005:994>\r\n');
+                break;
+              }
             }
             if (this.isInit) {
               switch (str.substring(0, 6)) {
@@ -288,20 +304,6 @@
                     case '<CMD01:010:989>': //睡眼模式关
                       this.modeSleep = false;
                       break;
-                    case '<CMD09:000:999>': {
-                      //查询连接名称
-                      const { deviceName } = uni.getStorageSync('MS');
-                      const lastSix = deviceName.slice(-6); // 获取字符串后6位
-                      const firstThree = lastSix.slice(0, 3); // 从后6位中获取前3位
-                      const lastThree = lastSix.slice(-3); // 从后6位中获取后3位
-                      this.sendCommand(`<CMD06:${firstThree}:${lastThree}>\r\n`);
-                      break;
-                    }
-                    case '<CMD11:000:999>': {
-                      this.isUpgrading = true;
-                      this.sendCommand('<CMD06:005:994>\r\n');
-                      break;
-                    }
                   }
                   break;
                 case '<CMD03': {
@@ -347,7 +349,6 @@
               if (this.sendValueString !== '<CMD00:900:099>') {
                 uni.$showMsg('操作成功！');
               }
-              console.log('this.sendValueString === this.getValueString');
             }
           })
         );
@@ -517,6 +518,7 @@
       },
       // 发送
       sendCommand(value) {
+        console.log(`发送：${value}`);
         if (this.isSending) return;
         this.isSending = true;
         if (!this.deviceId) {
@@ -597,7 +599,11 @@
           yOffset: yOffset
         };
       },
-
+      async initcloud() {
+        wx.cloud.init({
+          env: 'cloud-9g58dj443a4cc4c6'
+        });
+      },
       async getCloudVersion(firmware) {
         await this.initcloud();
         const db = wx.cloud.database();
@@ -611,8 +617,10 @@
           .get({
             success: (res) => {
               console.log(res.data[0]);
-              this.webVersion = res.data[0].file_version;
               this.fileUrl = res.data[0].OTA_file;
+              const params = JSON.stringify({ fileUrl: this.fileUrl, immediately: true });
+              this.isUpgrading = false;
+              uni.navigateTo({ url: `/pages/upgrade/index?params=${encodeURIComponent(params)}` });
             }
           });
       }

@@ -43,12 +43,16 @@
       };
     },
     async onLoad(options) {
-      await awaitWrapper(getBluetoothAdapterState());
-      this.onBLECharacteristicValueChange();
-      this.fileUrl = options.fileUrl;
-      await this.downloadFile();
-      if (options.execute) {
-        this.handleUpgrade();
+      if (options.params) {
+        await awaitWrapper(getBluetoothAdapterState());
+        this.onBLECharacteristicValueChange();
+        const parsedParams = JSON.parse(decodeURIComponent(options.params));
+        console.log('---------------', parsedParams);
+        this.fileUrl = parsedParams.fileUrl;
+        await this.downloadFile();
+        if (parsedParams.immediately) {
+          this.handleUpgrade();
+        }
       }
     },
     methods: {
@@ -81,6 +85,7 @@
       },
 
       sendCommand(value, isHexArray) {
+        console.log(value);
         const { write } = uni.getStorageSync('MS');
         writeBLECharacteristicValue({
           ...write,
@@ -107,6 +112,7 @@
       onBLECharacteristicValueChange() {
         uni.onBLECharacteristicValueChange((res) => {
           let str = arrayBufferToString(res.value);
+          console.log(`收到：${str}`);
           // uni.$showMsg('收到:' + str);
           // this.log = this.log + `收到:${str}(${arrayBufferToHex(res.value)})`;
           // console.log('收到蓝牙设备数据:', str);
@@ -147,6 +153,7 @@
         // // 监听 MCU 回复 ACK 然后发送文件数据
         uni.onBLECharacteristicValueChange((res) => {
           const str = arrayBufferToString(res.value);
+          console.log(`收到：${str}`);
           // uni.$showMsg('收到:' + str);
           // this.log = this.log + `收到:${str}(${arrayBufferToHex(res.value)})`;
           if ((arrayBufferToHex(res.value) === '06 43' || arrayBufferToHex(res.value) === '43 06' || arrayBufferToHex(res.value) === '06') && this.state === 0) {
