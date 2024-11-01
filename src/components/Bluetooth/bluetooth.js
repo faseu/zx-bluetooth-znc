@@ -24,10 +24,10 @@ import {
  * connectionStateChangeCb(Object) 监听的蓝牙连接状态改变的回调函数 { deviceId, connected }
  */
 export async function initBluetooth({ deviceFoundCb, noFound }) {
-  const advertisServiceUUID = '0000FFF0-0000-1000-8000-00805F9B34FB';
+  // const advertisServiceUUID = '0000FFF0-0000-1000-8000-00805F9B34FB';
   // const [err_close, res_close] = await awaitWrapper(closeBluetoothAdapter());
   // console.log('[err_close, res_close]', [err_close, res_close]);
-  let bluetoothDevices = []; // 已发现的蓝牙列表
+  // let bluetoothDevices = []; // 已发现的蓝牙列表
   const [err, res] = await awaitWrapper(openBluetoothAdapter());
   // console.log('[err, res]', [err, res]);
   const [err0, res0] = await awaitWrapper(getBluetoothAdapterState());
@@ -36,13 +36,7 @@ export async function initBluetooth({ deviceFoundCb, noFound }) {
     noFound();
     return;
   }
-  onBluetoothDeviceFound(async () => {
-    const [err, res] = await awaitWrapper(getBluetoothDevices());
-    // console.log(res);
-    const { devices: devicesGetArr } = res;
-    bluetoothDevices = devicesGetArr.filter((item) => item.advertisServiceUUIDs && item.advertisServiceUUIDs.includes(advertisServiceUUID));
-    deviceFoundCb(bluetoothDevices);
-  });
+  deviceFoundCb();
   const [err1, res1] = await awaitWrapper(startBluetoothDevicesDiscovery());
   // console.log('[err1, res1]', [err1, res1]);
 }

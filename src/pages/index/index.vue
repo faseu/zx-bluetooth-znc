@@ -238,7 +238,7 @@
                 const lastSix = deviceName.slice(-6); // 获取字符串后6位
                 const firstThree = lastSix.slice(0, 3); // 从后6位中获取前3位
                 const lastThree = lastSix.slice(-3); // 从后6位中获取后3位
-                this.sendCommand(`<CMD06:${firstThree}:${lastThree}>\r\n`);
+                this.sendCommand(`<CMD08:${firstThree}:${lastThree}>\r\n`);
                 break;
               }
               case '<CMD11:000:999>': {

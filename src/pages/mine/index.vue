@@ -65,9 +65,22 @@
         uni.navigateTo({ url: `/pages/upgrade/index?params=${encodeURIComponent(params)}` });
       },
       localUpgrade() {
-        // 在本地用户文件目录下创建一个文件 hello.txt，写入内容 "hello, world"
-        const fs = wx.getFileSystemManager();
-        fs.writeFileSync(`${wx.env.USER_DATA_PATH}/hello.txt`, 'hello, world', 'utf8');
+        const { deviceId } = uni.getStorageSync('MS');
+        if (!deviceId) {
+          uni.$showMsg('请先连接蓝牙！');
+          return;
+        }
+        // 微信聊天选择文件
+        wx.chooseMessageFile({
+          count: 1,
+          type: 'file', //all,video,image,file
+          extension: ['bin'],
+          success: (res) => {
+            console.log(res);
+            const params = JSON.stringify({ fileUrl: res.tempFiles[0].path, immediately: false, noDownload: true });
+            uni.navigateTo({ url: `/pages/upgrade/index?params=${encodeURIComponent(params)}` });
+          }
+        });
       },
       // 发送
       sendCommand(value) {

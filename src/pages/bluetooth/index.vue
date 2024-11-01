@@ -17,7 +17,7 @@
     <view class="title">可用设备</view>
     <view class="usable">
       <view class="usable-item" v-for="device in showBluetoothDevices" :key="device.deviceId" @click="connectBluetooth(device)">
-        <view class="usable-left">{{ device.name }}</view>
+        <view class="usable-left">{{ `${device.name} (${device.RSSI})` }}</view>
         <view class="usable-right">{{ device.deviceId === deviceId ? '已连接' : '未连接' }}</view>
       </view>
     </view>
@@ -29,7 +29,7 @@
   import { initBluetooth, connectBluetooth } from '@/components/Bluetooth/bluetooth.js';
 
   import { closeBluetoothAdapter, closeBLEConnection, awaitWrapper, writeBLECharacteristicValue } from '@/utils/bluetooth.js';
-  import { onBLEConnectionStateChange, stopBluetoothDevicesDiscovery } from '../../utils/bluetooth';
+  import { getBluetoothDevices, onBLEConnectionStateChange, onBluetoothDeviceFound, stopBluetoothDevicesDiscovery } from '../../utils/bluetooth';
 
   export default {
     name: 'bluetoothList',
@@ -98,6 +98,7 @@
       switchBluetooth() {
         if (this.switchFlag) {
           this.handleCloseBluetooth();
+          awaitWrapper(stopBluetoothDevicesDiscovery());
           awaitWrapper(closeBluetoothAdapter());
           this.switchFlag = false;
           uni.setStorageSync('flag', false);
@@ -126,11 +127,24 @@
       },
       initBluetooth() {
         initBluetooth({
-          deviceFoundCb: (bluetoothDevices) => {
-            this.bluetoothDevices = bluetoothDevices;
+          deviceFoundCb: () => {
+            this.onBluetoothDeviceFound();
           }
         });
       },
+      onBluetoothDeviceFound() {
+        onBluetoothDeviceFound(async () => {
+          const advertisServiceUUID = '0000FFF0-0000-1000-8000-00805F9B34FB';
+          const [err, res] = await awaitWrapper(getBluetoothDevices());
+          // console.log(res);
+          const { devices: devicesGetArr } = res;
+          console.log(devicesGetArr);
+          this.bluetoothDevices = devicesGetArr.filter((item) => item.advertisServiceUUIDs && item.advertisServiceUUIDs.includes(advertisServiceUUID) && item.RSSI > -80);
+          // console.log('bluetoothDevices', bluetoothDevices);
+          // console.log('onBluetoothDeviceFound, devices', devices);
+        });
+      },
+
       writeBLECharacteristicValue(value) {
         const { deviceId, serviceId, characteristicId } = this.writeDevice;
         return writeBLECharacteristicValue({

@@ -48,6 +48,10 @@
         this.onBLECharacteristicValueChange();
         const parsedParams = JSON.parse(decodeURIComponent(options.params));
         console.log('---------------', parsedParams);
+        if (parsedParams.noDownload) {
+          this.readFileAsArrayBuffer(parsedParams.fileUrl);
+          return;
+        }
         this.fileUrl = parsedParams.fileUrl;
         await this.downloadFile();
         if (parsedParams.immediately) {
