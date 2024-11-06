@@ -7,11 +7,11 @@
       <text class="upgrade-desc">{{ upgradable ? '有新的升级文件' : '' }}</text>
       <image class="upgrade-arrow" src="../../static/home/right-arrow.png" alt="" />
     </view>
-    <!--    <view class="upgrade" @click="localUpgrade">-->
-    <!--      <image class="upgrade-icon" src="../../static/mine/upgrade-icon.png" alt="" />-->
-    <!--      <text class="upgrade-title">本地升级</text>-->
-    <!--      <image class="upgrade-arrow" src="../../static/home/right-arrow.png" alt="" />-->
-    <!--    </view>-->
+    <view class="upgrade" @click="localUpgrade">
+      <image class="upgrade-icon" src="../../static/mine/upgrade-icon.png" alt="" />
+      <text class="upgrade-title">本地升级</text>
+      <image class="upgrade-arrow" src="../../static/home/right-arrow.png" alt="" />
+    </view>
   </view>
 </template>
 
