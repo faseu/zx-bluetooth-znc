@@ -197,7 +197,7 @@
         return header.buffer;
       },
       // 发送 YMODEM 文件数据
-      sendYmodemData(fileBuffer) {
+      async sendYmodemData(fileBuffer) {
         const packetSize = 1024; // STX 数据包为 1024 字节
         const packet = new Uint8Array(packetSize + 5); // STX + 序号 + 数据 + CRC
         packet[0] = 0x02; // STX 标识
@@ -231,6 +231,8 @@
           offset += size;
           // 发送数据包
           this.sendCommand(tempPacket.buffer, true);
+          // 等待 0.5 秒
+          await this.delay(200);
         }
 
         // 监听 ACK
@@ -290,7 +292,12 @@
         crc = this.updateCRC16(crc, 0);
         console.log(crc & 0xffff);
         return crc & 0xffff; // Ensure result is 16-bit
+      },
+      delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
       }
+
+
     }
   };
 </script>
